@@ -1,8 +1,8 @@
 # Nomad CR
 
-Pipeline para generar borradores semanales de análisis político y de datos de Costa Rica, con tono LinkedIn.
+Pipeline semanal de analisis politico y de datos de Costa Rica para posts de LinkedIn.
 
-**Flujo:** RSS + APIs públicas → categorización/dedup → agente multi-turn → post markdown.
+**Flujo:** RSS + APIs publicas + INEC datasets -> categorizacion/dedup -> agente multi-turn (Groq) -> post markdown.
 
 ## Setup
 
@@ -12,64 +12,68 @@ python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -e .
 copy .env.example .env
-# opcional: OPENAI_API_KEY, BCCR_EMAIL, BCCR_TOKEN
+```
+
+Editar `.env`:
+```
+GROQ_API_KEY=gsk_...      # https://console.groq.com (gratis)
 ```
 
 ## Comandos
 
 ```powershell
-# Ingesta RSS (CRHoy, Nación, Financiero, etc.) + APIs (Hacienda, RECOPE, BCCR)
+# Pipeline semanal completo
+python -m nomad weekly
+
+# Forzar post aunque el agente diga no-go
+python -m nomad weekly --force
+
+# Ver frescura de datos INEC
+python -m nomad health
+
+# Solo ingesta
 python -m nomad ingest
 
-# Agente multi-turn: ¿hay info suficiente? ¿es interesante?
-python -m nomad analyze
-
-# Borrador markdown (análisis + post)
-python -m nomad draft
-python -m nomad draft --force   # ignora no-go del agente
-
-# Pipeline completo (lunes 8am)
-python -m nomad weekly
-python -m nomad schedule-run --once
-
-# Tras publicar en LinkedIn (cooldown 30 días)
-python -m nomad publish data\drafts\YYYYMMDD_tema.json
-
+# Ver estado del catalogo
 python -m nomad status
+
+# Marcar draft como publicado (cooldown 30 dias)
+python -m nomad publish data\drafts\archivo.json
 ```
 
-## Estructura
+## Datos INEC cargados (1,420 puntos)
 
-```
-config/settings.yaml     # feeds, APIs, voz, schedule
-src/nomad/
-  ingest/                # RSS + APIs CR
-  process/               # categoría, dedupe, store JSON
-  agent/                 # multi-turn + redacción LinkedIn
-  pipeline.py
-  cli.py
-data/
-  raw/                   # dumps de ingesta
-  processed/items.json   # catálogo
-  drafts/                # markdown + json
-  history/published.json # posts ya usados (30 días)
-```
+| Dataset | Puntos | Ciclo |
+|---------|--------|-------|
+| Pobreza ENAHO 2010-2025 | 192 | Anual |
+| Indicadores Cantonales ArcGIS | 486 | Anual |
+| IDS Dimensiones | 420 | Anual |
+| PIB Cantonal | 84 | Anual |
+| IPM Multidimensional | 67 | Anual |
+| OIJ Estadisticas | 33 | Mensual |
+| IDS Cantonal | 30 | Anual |
+| CBA Junio 2026 | 18 | Mensual |
+| Empresas Q1 2026 | 18 | Trimestral |
+| Trabajadores Q1 2026 | 18 | Trimestral |
+| IPC (12 meses) | 13 | Mensual |
+| Turismo CST 2021 | 1 | Anual |
+| APIs (Hacienda, RECOPE) | 8 | En vivo |
 
 ## Agente multi-turn
 
-1. **Triage heurístico** — clusters por tema (seguridad, economía, política, cantonal)
-2. **Gate suficiencia** — ≥2 fuentes + dato/estadística
-3. **Refine insight** — LLM si hay `OPENAI_API_KEY`, si no heurística
-4. **Gate interés** — go/no-go para el post
+1. **Triage heuristico** -- clusters por tema
+2. **Gate suficiencia** -- >=2 fuentes + dato/estadistica
+3. **Refine insight** -- LLM (Groq, DeepSeek, OpenAI)
+4. **Gate interes** -- go/no-go para el post
 
-Sin API key el sistema funciona completo en modo local (heurísticas + redacción plantilla).
+Prioridad LLM: Groq > DeepSeek > OpenAI > heuristico local.
 
-## Fuentes de datos
+## Fuentes
 
-- RSS configurables en `config/settings.yaml`
-- [public-apis-cr](https://github.com/ruiznorlan/public-apis-cr): Hacienda TC, RECOPE, BCCR (token)
-- Datasets cantonales/INEC: colocar CSV/JSON en `data/raw/inec/` (extensible)
+- RSS: La Nacion, El Financiero, Delfino, Semanario Universidad
+- APIs: Hacienda (TC), RECOPE (combustibles)
+- INEC: datos cantonales cargados en `data/raw/inec/`
 
-## Voz del post
+## GitHub Actions
 
-Conversacional, fundamentado, audiencia profesional LinkedIn/TikTok. Estructura: gancho con dato → contexto → insight → pregunta de diálogo. Confianza: alto / medio / bajo.
+Workflow semanal: lunes 8:00 AM CR. Requiere secret `GROQ_API_KEY` en Settings > Secrets > Actions.
