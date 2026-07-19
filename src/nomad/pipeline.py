@@ -21,7 +21,9 @@ from nomad.process import (
     merge_catalog,
     save_catalog,
     save_draft_markdown,
+    save_history,
 )
+from nomad.process.freshness import check_freshness, Freshness
 from nomad.utils import utcnow, write_json
 
 logger = logging.getLogger(__name__)
@@ -154,6 +156,23 @@ def run_draft(
     agent = AnalysisAgent(cfg, llm_client=llm_client, llm_model=llm_model)
     news, data = agent.selected_payload(catalog, decision)
     draft = compose_draft(decision, news, data, cfg=cfg, llm_client=llm_client, llm_model=llm_model)
+
+    # Agregar seccion de frescura de datos al analisis
+    alerts = check_freshness(catalog)
+    expired = [a for a in alerts if a["status"] == Freshness.EXPIRED]
+    warning = [a for a in alerts if a["status"] == Freshness.WARNING]
+    if expired or warning:
+        health_md = "\n### Frescura de datos\n\n"
+        if expired:
+            health_md += "**Vencidos:**\n"
+            for a in expired:
+                health_md += f"- {a['name']}: {a['period']} ({a['age_months']} meses, ciclo {a['cycle_months']}m)\n"
+        if warning:
+            health_md += "\n**Por vencer:**\n"
+            for a in warning:
+                health_md += f"- {a['name']}: {a['period']} ({a['age_months']} meses, ciclo {a['cycle_months']}m)\n"
+        draft.analysis_md += health_md
+
     path = save_draft_markdown(paths["drafts_dir"], draft)
     logger.info("Borrador guardado: %s (confianza=%s)", path, draft.confidence.value)
     return draft
