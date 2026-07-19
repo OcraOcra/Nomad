@@ -162,18 +162,15 @@ def build_linkedin_post_llm(
     news: list[NewsItem],
     data: list[HardDataPoint],
     *,
-    api_key: str | None,
-    model: str = "gpt-4o-mini",
+    client: Any | None = None,
+    model: str = "deepseek-chat",
     temperature: float = 0.5,
     persona: str = "",
     max_words: int = 280,
 ) -> str | None:
-    if not api_key:
+    if client is None:
         return None
     try:
-        from openai import OpenAI
-
-        client = OpenAI(api_key=api_key)
         payload = {
             "theme": decision.theme,
             "category": decision.category.value,
@@ -216,7 +213,8 @@ def compose_draft(
     data: list[HardDataPoint],
     *,
     cfg: dict[str, Any],
-    api_key: str | None = None,
+    llm_client: Any = None,
+    llm_model: str = "deepseek-chat",
 ) -> DraftPost:
     voice = cfg.get("voice") or {}
     agent_cfg = cfg.get("agent") or {}
@@ -228,8 +226,8 @@ def compose_draft(
         decision,
         news,
         data,
-        api_key=api_key,
-        model=agent_cfg.get("model", "gpt-4o-mini"),
+        client=llm_client,
+        model=llm_model,
         temperature=float(agent_cfg.get("temperature", 0.4)) + 0.1,
         persona=persona,
         max_words=max_words,

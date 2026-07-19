@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from nomad.agent import AnalysisAgent, compose_draft
+from nomad.agent.llm import get_llm_client
 from nomad.config import ROOT, get_config
 from nomad.ingest import fetch_all_rss, fetch_public_hard_data, load_inec_data
 from nomad.models import Catalog, DraftPost, PublishedRecord
@@ -85,7 +86,12 @@ def run_analyze(
     cfg, env, paths = _resolve(cfg, env, paths)
     if catalog is None:
         catalog = load_catalog(paths["catalog_file"])
-    agent = AnalysisAgent(cfg, api_key=env.openai_api_key)
+    llm_result = get_llm_client(cfg, env)
+    if llm_result:
+        llm_client, llm_model, _ = llm_result
+    else:
+        llm_client, llm_model = None, "deepseek-chat"
+    agent = AnalysisAgent(cfg, llm_client=llm_client, llm_model=llm_model)
     decision = agent.run(catalog)
     log_path = paths["processed_dir"] / f"agent_turns_{utcnow().strftime('%Y%m%d_%H%M%S')}.json"
     write_json(log_path, agent.turns_log)
@@ -135,9 +141,12 @@ def run_draft(
         logger.warning("No-go draft guardado en %s", path)
         return stub
 
-    agent = AnalysisAgent(cfg, api_key=env.openai_api_key)
+    llm_result = get_llm_client(cfg, env)
+    llm_client, llm_model = (llm_result[0], llm_result[1]) if llm_result else (None, "llama-3.3-70b-versatile")
+
+    agent = AnalysisAgent(cfg, llm_client=llm_client, llm_model=llm_model)
     news, data = agent.selected_payload(catalog, decision)
-    draft = compose_draft(decision, news, data, cfg=cfg, api_key=env.openai_api_key)
+    draft = compose_draft(decision, news, data, cfg=cfg, llm_client=llm_client, llm_model=llm_model)
     path = save_draft_markdown(paths["drafts_dir"], draft)
     logger.info("Borrador guardado: %s (confianza=%s)", path, draft.confidence.value)
     return draft

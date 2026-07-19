@@ -58,7 +58,11 @@ public_apis:
     enabled: true
 
 agent:
-  model: "gpt-4o-mini"
+  # model: dejar vacio para usar el default de cada proveedor
+  # groq: llama-4-maverick-17b-128e-instruct
+  # deepseek: deepseek-chat
+  # openai: gpt-4o-mini
+  model: ""
   temperature: 0.4
   max_turns: 4
   min_sources_for_post: 2

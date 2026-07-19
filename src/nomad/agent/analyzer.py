@@ -14,6 +14,7 @@ from nomad.models import (
     HardDataPoint,
     NewsItem,
 )
+from nomad.agent.llm import get_llm_client
 
 logger = logging.getLogger(__name__)
 
@@ -252,12 +253,12 @@ def _llm_refine(
     news: list[NewsItem],
     data: list[HardDataPoint],
     *,
-    api_key: str | None,
-    model: str = "gpt-4o-mini",
+    client: Any | None = None,
+    model: str = "deepseek-chat",
     temperature: float = 0.4,
 ) -> AnalysisDecision:
-    if not api_key:
-        logger.info("Sin OPENAI_API_KEY: se usa decision heuristica multi-turn local")
+    if client is None:
+        logger.info("Sin LLM disponible: se usa decision heuristica multi-turn local")
         return decision
 
     selected_news = [n for n in news if n.id in decision.selected_news_ids]
@@ -304,10 +305,6 @@ def _llm_refine(
     )
 
     try:
-        from openai import OpenAI
-
-        client = OpenAI(api_key=api_key)
-        # Multi-turn: turn 1 triage, turn 2 refine insight
         messages = [
             {"role": "system", "content": system},
             {"role": "user", "content": user},
@@ -372,15 +369,15 @@ def _llm_refine(
 
 
 class AnalysisAgent:
-    """Agente multi-turn: triage heurístico → refinamiento LLM (opcional) → go/no-go."""
+    """Agente multi-turn: triage heuristico -> refinamiento LLM -> go/no-go."""
 
-    def __init__(self, cfg: dict[str, Any], api_key: str | None = None):
+    def __init__(self, cfg: dict[str, Any], llm_client=None, llm_model: str = "deepseek-chat"):
         self.cfg = cfg.get("agent") or {}
-        self.api_key = api_key
+        self.llm_client = llm_client
+        self.llm_model = llm_model
         self.max_turns = int(self.cfg.get("max_turns", 4))
         self.min_sources = int(self.cfg.get("min_sources_for_post", 2))
         self.min_hard = int(self.cfg.get("min_hard_data_points", 1))
-        self.model = self.cfg.get("model", "gpt-4o-mini")
         self.temperature = float(self.cfg.get("temperature", 0.4))
         self.turns_log: list[dict[str, Any]] = []
 
@@ -406,8 +403,8 @@ class AnalysisAgent:
             d1,
             news,
             hard,
-            api_key=self.api_key,
-            model=self.model,
+            client=self.llm_client,
+            model=self.llm_model,
             temperature=self.temperature,
         )
         self.turns_log.append({"turn": 3, "name": "refine_insight", "decision": d2.model_dump()})

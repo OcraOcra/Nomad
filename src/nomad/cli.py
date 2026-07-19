@@ -124,14 +124,66 @@ def cmd_publish(
     draft_json: Path = typer.Argument(..., help="Ruta al .json del draft"),
     notes: str = typer.Option("", "--notes"),
 ) -> None:
-    """Marca un draft como publicado (entra al cooldown de 30 días)."""
+    """Marca un draft como publicado (entra al cooldown de 30 dias)."""
     _setup_log()
     from nomad.models import DraftPost
 
     raw = read_json(draft_json)
     draft = DraftPost.model_validate(raw)
     rec = mark_published(draft, notes=notes)
-    console.print(f"[green]Histórico actualizado:[/green] {rec.theme} @ {rec.published_at}")
+    console.print(f"[green]Historico actualizado:[/green] {rec.theme} @ {rec.published_at}")
+
+
+@app.command("health")
+def cmd_health() -> None:
+    """Verifica la frescura de los datos cargados y muestra alertas."""
+    _setup_log()
+    from nomad.process.freshness import check_freshness, Freshness
+
+    cfg, _, paths = get_config()
+    catalog = load_catalog(paths["catalog_file"])
+    alerts = check_freshness(catalog)
+
+    if not alerts:
+        console.print("[green]Sin alertas de frescura.[/green]")
+        return
+
+    from rich.table import Table
+
+    table = Table(title="Frescura de Datos")
+    table.add_column("Dataset")
+    table.add_column("Periodo mas reciente")
+    table.add_column("Estado")
+    table.add_column("Ciclo esperado")
+
+    for a in alerts:
+        status = a["status"]
+        if status == Freshness.EXPIRED:
+            icon = "[bold red]VENCIDO[/bold red]"
+        elif status == Freshness.WARNING:
+            icon = "[yellow]PROXIMO[/yellow]"
+        else:
+            icon = "[green]FRESCO[/green]"
+
+        table.add_row(
+            a["name"],
+            a["period"],
+            icon,
+            f"{a['cycle_months']} meses",
+        )
+
+    console.print(table)
+    console.print()
+    expired = [a for a in alerts if a["status"] == Freshness.EXPIRED]
+    warning = [a for a in alerts if a["status"] == Freshness.WARNING]
+    if expired:
+        console.print(f"[red]{len(expired)} datasets VENCIDOS[/red]")
+        for a in expired:
+            console.print(f"  - {a['message']}")
+    if warning:
+        console.print(f"[yellow]{len(warning)} datasets por vencer[/yellow]")
+        for a in warning:
+            console.print(f"  - {a['message']}")
 
 
 @app.command("status")

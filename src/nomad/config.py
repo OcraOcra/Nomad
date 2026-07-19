@@ -15,6 +15,8 @@ DEFAULT_CONFIG = ROOT / "config" / "settings.yaml"
 
 class Settings(BaseSettings):
     openai_api_key: str | None = Field(default=None, alias="OPENAI_API_KEY")
+    deepseek_api_key: str | None = Field(default=None, alias="DEEPSEEK_API_KEY")
+    groq_api_key: str | None = Field(default=None, alias="GROQ_API_KEY")
     bccr_email: str | None = Field(default=None, alias="BCCR_EMAIL")
     bccr_token: str | None = Field(default=None, alias="BCCR_TOKEN")
     anthropic_api_key: str | None = Field(default=None, alias="ANTHROPIC_API_KEY")
