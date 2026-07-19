@@ -1,0 +1,53 @@
+name: Weekly Draft
+
+on:
+  schedule:
+    # Lunes 8:00 AM Costa Rica (UTC-6) = 14:00 UTC
+    - cron: "0 14 * * 1"
+  workflow_dispatch:  # permite ejecutar manual desde GitHub
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  draft:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -e .
+
+      - name: Run weekly pipeline
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          BCCR_EMAIL: ${{ secrets.BCCR_EMAIL }}
+          BCCR_TOKEN: ${{ secrets.BCCR_TOKEN }}
+        run: |
+          python -m nomad weekly --force
+
+      - name: Upload drafts as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: weekly-drafts
+          path: data/drafts/*.md
+          retention-days: 30
+
+      - name: Commit and push drafts
+        run: |
+          git config user.name "nomad-bot"
+          git config user.email "bot@nomad.cr"
+          git add data/drafts/ data/processed/ data/history/ data/raw/*.json
+          git diff --staged --quiet || (
+            git commit -m "weekly draft $(date +%Y-%m-%d)" &&
+            git push
+          )

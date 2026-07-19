@@ -1,0 +1,90 @@
+project:
+  name: "Nomad CR"
+  timezone: "America/Costa_Rica"
+  language: "es-CR"
+
+schedule:
+  weekly_draft_day: "monday"
+  weekly_draft_hour: 8
+  history_cooldown_days: 30
+
+ingestion:
+  lookback_days: 7
+  request_timeout_seconds: 25
+  user_agent: "NomadCR/1.0 (+analisis-politica-datos-cr)"
+
+categories:
+  - seguridad
+  - desarrollo_cantonal
+  - politica
+  - economia
+
+rss_feeds:
+  # URLs verificadas; CRHoy/Amelia no exponen RSS estable público
+  - name: "La Nación"
+    url: "https://www.nacion.com/rss/"
+    weight: 1.0
+  - name: "El Financiero"
+    url: "https://www.elfinancierocr.com/rss/"
+    weight: 1.1
+  - name: "Delfino"
+    url: "https://delfino.cr/feed"
+    weight: 1.0
+  - name: "Semanario Universidad"
+    url: "https://semanariouniversidad.com/feed/"
+    weight: 0.9
+  # Agregar más feeds cuando expongan RSS real (CRHoy/Amelia/Teletica varían)
+
+public_apis:
+  hacienda:
+    tipo_cambio: "https://api.hacienda.go.cr/indicadores/tc"
+  recope:
+    precio_consumidor: "https://api.recope.go.cr/ventas/precio/consumidor"
+    precio_internacional: "https://api.recope.go.cr/precio-internacional"
+  # BCCR requiere token de suscripción (opcional vía env BCCR_TOKEN / BCCR_EMAIL)
+  bccr:
+    wsdl: "https://gee.bccr.fi.cr/Indicadores/Suscripciones/WS/wsindicadoreseconomicos.asmx"
+    indicators:
+      tipo_cambio_compra: 317
+      tipo_cambio_venta: 318
+      tbp: 3541
+      inflacion_interanual: 25485
+  # Fuentes abiertas complementarias (HTML/JSON públicos)
+  inec:
+    # Portal de datos; scrapers ligeros / endpoints documentados en código
+    base: "https://www.inec.cr"
+  datos_abiertos:
+    # CKAN-style catalogs cuando estén disponibles
+    enabled: true
+
+agent:
+  model: "gpt-4o-mini"
+  temperature: 0.4
+  max_turns: 4
+  min_sources_for_post: 2
+  min_hard_data_points: 1
+  confidence_thresholds:
+    high: 0.75
+    medium: 0.45
+
+voice:
+  persona: |
+    Eres analista de política y datos de Costa Rica. Conversacional pero
+    siempre fundamentado. Dirigido a profesionales en LinkedIn y redes
+    como TikTok: no tan académico. Primero conecta la noticia con datos,
+    luego haz una pregunta o reflexión que invite al diálogo.
+  post_structure:
+    - "gancho con dato o tensión"
+    - "contexto de la noticia"
+    - "dato duro / indicador"
+    - "insight no obvio"
+    - "pregunta final de diálogo"
+  max_words: 280
+
+paths:
+  data_dir: "data"
+  raw_dir: "data/raw"
+  processed_dir: "data/processed"
+  drafts_dir: "data/drafts"
+  history_file: "data/history/published.json"
+  catalog_file: "data/processed/items.json"
