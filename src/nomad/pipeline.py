@@ -8,6 +8,7 @@ from nomad.agent import AnalysisAgent, compose_draft
 from nomad.agent.llm import get_llm_client
 from nomad.config import ROOT, get_config
 from nomad.ingest import fetch_all_rss, fetch_public_hard_data, load_inec_data
+from nomad.ingest.scrapers import scrape_all
 from nomad.models import Catalog, DraftPost, PublishedRecord
 from nomad.process import (
     append_history,
@@ -35,6 +36,12 @@ def run_ingest(cfg: dict[str, Any] | None = None, env=None, paths: dict[str, Pat
     logger.info("Ingesta RSS...")
     news = fetch_all_rss(cfg.get("rss_feeds") or [], timeout=timeout, user_agent=ua)
     news = categorize_all(news)
+
+    logger.info("Scrapers CRHoy / AmeliaRueda...")
+    scraped = scrape_all()
+    scraped = categorize_all(scraped)
+    news.extend(scraped)
+
     news = dedupe_news(news)
     news = filter_recent(news, int(ing.get("lookback_days", 7)))
 

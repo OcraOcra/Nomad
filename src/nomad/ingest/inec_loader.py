@@ -815,6 +815,207 @@ def parse_turismo(path: Path) -> list[HardDataPoint]:
     return points
 
 
+# ---- Educacion ----
+
+
+def parse_aprobados_reprobados(path: Path) -> list[HardDataPoint]:
+    """Aprobados/Aplazados/Reprobados 2014-2022: agrega por anio."""
+    import openpyxl
+
+    wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
+    points: list[HardDataPoint] = []
+    for sn in wb.sheetnames:
+        if "base" not in sn.lower():
+            continue
+        ws = wb[sn]
+        rows = list(ws.iter_rows(values_only=True))
+        # row2 = headers: CURSO LECTIVO(col0), ..., MFT(col15=Matricula Final Total),
+        # APT(col33=Aprobados Total), APLazados..., REProbados...
+        # indices aproximados: 0=ANIO, 15=MFT, 33=APT
+        by_year: dict[int, dict[str, float]] = {}
+        for row in rows[3:]:
+            vals = [_safe_str(c) for c in (row or [])]
+            try:
+                anio = int(vals[0]) if vals[0] else None
+            except ValueError:
+                continue
+            if not anio:
+                continue
+            mft = _val(vals[16]) if len(vals) > 16 else None  # MFT col ~15-17 dependiendo
+            apt = _val(vals[33]) if len(vals) > 33 else None
+            # buscar columnas TOTAL en row1
+            if anio not in by_year:
+                by_year[anio] = {"matricula": 0, "aprobados": 0, "total_rows": 0}
+            if mft is not None:
+                by_year[anio]["matricula"] += mft
+            if apt is not None:
+                by_year[anio]["aprobados"] += apt
+            by_year[anio]["total_rows"] += 1
+
+        for anio, agg in sorted(by_year.items()):
+            if agg["matricula"] > 0:
+                points.append(
+                    HardDataPoint(
+                        name=f"edu_matricula_final_{anio}",
+                        value=round(agg["matricula"]),
+                        unit="estudiantes",
+                        period=str(anio),
+                        source="MEP-INEC",
+                        url="",
+                        category=Category.DESARROLLO_CANTONAL,
+                        meta={"aprobados": round(agg["aprobados"])},
+                    )
+                )
+            if agg["aprobados"] > 0 and agg["matricula"] > 0:
+                tasa = round(agg["aprobados"] / agg["matricula"] * 100, 1)
+                points.append(
+                    HardDataPoint(
+                        name=f"edu_tasa_aprobacion_{anio}",
+                        value=tasa,
+                        unit="%",
+                        period=str(anio),
+                        source="MEP-INEC",
+                        url="",
+                        category=Category.DESARROLLO_CANTONAL,
+                    )
+                )
+    wb.close()
+    logger.info("Educacion Aprob/Reprob: %d puntos", len(points))
+    return points
+
+
+def parse_rendimiento_definitivo(path: Path) -> list[HardDataPoint]:
+    """Rendimiento Definitivo 2024: extrae resumen del Cuadro 1."""
+    import openpyxl
+
+    wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
+    points: list[HardDataPoint] = []
+    target = "C1" if "C1" in wb.sheetnames else None
+    if not target:
+        wb.close()
+        return points
+    ws = wb[target]
+    rows = list(ws.iter_rows(values_only=True))
+    # row5: header con anios en col1..colN
+    # buscar filas con "Matricula Final" y "Aprobados"
+    headers_row = None
+    for i in range(30):
+        vals = [_safe_str(c) for c in (rows[i] or [])]
+        if "nivel" in vals[0].lower() and "rendimiento" in vals[0].lower():
+            headers_row = i
+            break
+    if headers_row is None:
+        wb.close()
+        return points
+
+    # extraer anios de la fila header
+    hdr_vals = [_safe_str(c) for c in (rows[headers_row] or [])]
+    years = []
+    for v in hdr_vals[1:]:
+        try:
+            y = int(v)
+            if 2000 < y < 2030:
+                years.append(y)
+        except ValueError:
+            continue
+
+    section = ""
+    for i in range(headers_row + 1, min(headers_row + 50, len(rows))):
+        vals = [_safe_str(c) for c in (rows[i] or [])]
+        if not vals[0]:
+            continue
+        first = vals[0].lower()
+        if "fuente:" in first:
+            break
+        if "i y ii" in first or "iii ciclo" in first or "escuelas nocturnas" in first or "academica" in first or "tecnica" in first:
+            section = _norm(vals[0]).lower().strip()[:30]
+            continue
+        if "matricula" in first or "aprobados" in first or "reprobados" in first:
+            metric = first.replace(" ", "_").replace(":", "").strip()[:20]
+            for j, anio in enumerate(years):
+                val = _val(vals[j + 1]) if j + 1 < len(vals) else None
+                if val is not None:
+                    points.append(
+                        HardDataPoint(
+                            name=f"rend_{section}_{metric}_{anio}"[:70],
+                            value=round(val),
+                            unit="estudiantes",
+                            period=str(anio),
+                            source="MEP",
+                            url="",
+                            category=Category.DESARROLLO_CANTONAL,
+                        )
+                    )
+    wb.close()
+    logger.info("Rendimiento Definitivo: %d puntos", len(points))
+    return points
+
+
+def parse_extranjeros_colegios(path: Path) -> list[HardDataPoint]:
+    """Estudiantes extranjeros 2014-2022: agrega por anio."""
+    import openpyxl
+
+    wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
+    points: list[HardDataPoint] = []
+    for sn in wb.sheetnames:
+        if "base" not in sn.lower():
+            continue
+        ws = wb[sn]
+        rows = list(ws.iter_rows(values_only=True))
+        by_year: dict[int, float] = {}
+        by_prov_year: dict[str, dict[int, float]] = {}
+        for row in rows[3:]:
+            vals = [_safe_str(c) for c in (row or [])]
+            try:
+                anio = int(vals[0]) if vals[0] else None
+            except ValueError:
+                continue
+            if not anio:
+                continue
+            provincia = vals[8] if len(vals) > 8 else ""
+            # TOTT col ~15 (Total)
+            total = _val(vals[14]) if len(vals) > 14 else None
+            if total is not None:
+                by_year[anio] = by_year.get(anio, 0) + total
+                key = _norm(provincia).lower().strip()
+                if key:
+                    if key not in by_prov_year:
+                        by_prov_year[key] = {}
+                    by_prov_year[key][anio] = by_prov_year[key].get(anio, 0) + total
+
+        for anio, total in sorted(by_year.items()):
+            points.append(
+                HardDataPoint(
+                    name=f"extranjeros_colegios_{anio}",
+                    value=round(total),
+                    unit="estudiantes",
+                    period=str(anio),
+                    source="MEP-INEC",
+                    url="",
+                    category=Category.DESARROLLO_CANTONAL,
+                )
+            )
+        # top 5 provincias ultimo anio
+        ultimo = max(by_year.keys()) if by_year else None
+        if ultimo:
+            for prov, years in sorted(by_prov_year.items(), key=lambda x: -x[1].get(ultimo, 0))[:5]:
+                if ultimo in years:
+                    points.append(
+                        HardDataPoint(
+                            name=f"extranjeros_{prov}_{ultimo}",
+                            value=round(years[ultimo]),
+                            unit="estudiantes",
+                            period=str(ultimo),
+                            source="MEP-INEC",
+                            url="",
+                            category=Category.DESARROLLO_CANTONAL,
+                        )
+                    )
+    wb.close()
+    logger.info("Extranjeros colegios: %d puntos", len(points))
+    return points
+
+
 # ---- PARSERS y Loader ----
 
 
@@ -835,6 +1036,10 @@ PARSERS: dict[str, tuple[str, Any]] = {
     "ind_cant": ("indicadores_cantonales", parse_indicadores_cantonales),
     "pib_cant": ("pib_cantonal", parse_pib_cantonal),
     "est_oij": ("Estadisticas", parse_estadisticas_oij),
+    # Educacion
+    "edu_apr": ("AprobadosAplazadosReprobados", parse_aprobados_reprobados),
+    "edu_rend": ("RendimientoDefinitivo", parse_rendimiento_definitivo),
+    "edu_extr": ("extranjeroscolegios", parse_extranjeros_colegios),
 }
 
 
