@@ -166,11 +166,11 @@ def run_draft(
         if expired:
             health_md += "**Vencidos:**\n"
             for a in expired:
-                health_md += f"- {a['name']}: {a['period']} ({a['age_months']} meses, ciclo {a['cycle_months']}m)\n"
+                health_md += f"- {a['name']}: {a['period']} ({a.get('age_months', '?')} meses, ciclo {a['cycle_months']}m)\n"
         if warning:
             health_md += "\n**Por vencer:**\n"
             for a in warning:
-                health_md += f"- {a['name']}: {a['period']} ({a['age_months']} meses, ciclo {a['cycle_months']}m)\n"
+                health_md += f"- {a['name']}: {a['period']} ({a.get('age_months', '?')} meses, ciclo {a['cycle_months']}m)\n"
         draft.analysis_md += health_md
 
     path = save_draft_markdown(paths["drafts_dir"], draft)
