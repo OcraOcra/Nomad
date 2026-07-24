@@ -34,6 +34,32 @@ rss_feeds:
     url: "https://semanariouniversidad.com/feed/"
     weight: 0.9
   # Agregar más feeds cuando expongan RSS real (CRHoy/Amelia/Teletica varían)
+  # --- Global feeds ---
+  - name: "MarketWatch Top Stories"
+    url: "https://feeds.marketwatch.com/marketwatch/topstories/"
+    weight: 0.8
+    region: "global"
+    category: "business"
+  - name: "MarketWatch Market Pulse"
+    url: "https://feeds.marketwatch.com/marketwatch/marketpulse/"
+    weight: 0.8
+    region: "global"
+    category: "business"
+  - name: "CNBC Top Stories"
+    url: "https://www.cnbc.com/id/100003114/device/rss/rss.html"
+    weight: 0.8
+    region: "global"
+    category: "business"
+  - name: "The Economist Finance"
+    url: "https://www.economist.com/finance-and-economics/rss.xml"
+    weight: 0.8
+    region: "global"
+    category: "economy"
+  - name: "BBC Business"
+    url: "http://feeds.bbci.co.uk/news/business/rss.xml"
+    weight: 0.8
+    region: "global"
+    category: "business"
 
 public_apis:
   hacienda:
