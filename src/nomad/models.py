@@ -42,6 +42,7 @@ class NewsItem(BaseModel):
     keywords: list[str] = Field(default_factory=list)
     stats_mentions: list[str] = Field(default_factory=list)
     topic_key: str = ""
+    region: str = "local"
     raw: dict[str, Any] = Field(default_factory=dict)
 
 

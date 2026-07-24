@@ -16,6 +16,7 @@ def fetch_rss_feed(
     name: str,
     url: str,
     *,
+    region: str = "local",
     timeout: float = 25.0,
     user_agent: str = "NomadCR/1.0",
     client: httpx.Client | None = None,
@@ -66,6 +67,7 @@ def fetch_rss_feed(
                     source_type=SourceType.RSS,
                     published_at=published,
                     fetched_at=utcnow(),
+                    region=region,
                     raw={
                         "feed_url": url,
                         "id": getattr(entry, "id", None),
@@ -92,6 +94,7 @@ def fetch_all_rss(feeds: list[dict[str, Any]], **kwargs: Any) -> list[NewsItem]:
                 fetch_rss_feed(
                     feed["name"],
                     feed["url"],
+                    region=feed.get("region", "local"),
                     timeout=timeout,
                     user_agent=user_agent,
                     client=client,
