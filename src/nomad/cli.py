@@ -186,6 +186,58 @@ def cmd_health() -> None:
             console.print(f"  - {a['message']}")
 
 
+@app.command("test-mcp")
+def cmd_test_mcp(
+    source: str = typer.Option(
+        None,
+        "--source",
+        "-s",
+        help="Nombre del wrapper a probar (news, world_intel, imf). Si no se especifica, prueba todos.",
+    ),
+    timeout: int = typer.Option(30, "--timeout", "-t", help="Timeout en segundos"),
+) -> None:
+    """Prueba wrappers MCP individuales o todos en paralelo."""
+    _setup_log()
+    from nomad.mcp.wrappers import NewsWrapper, IntelWrapper, IMFWrapper
+
+    wrappers_map = {
+        "news": NewsWrapper,
+        "world_intel": IntelWrapper,
+        "imf": IMFWrapper,
+    }
+
+    if source:
+        if source not in wrappers_map:
+            console.print(f"[red]Error: wrapper '{source}' no existe[/red]")
+            console.print(f"Wrappers disponibles: {', '.join(wrappers_map.keys())}")
+            raise typer.Exit(1)
+        wrappers_to_test = {source: wrappers_map[source]}
+    else:
+        wrappers_to_test = wrappers_map
+
+    console.print(f"[cyan]Probando {len(wrappers_to_test)} wrapper(s) MCP...[/cyan]\n")
+
+    for name, wrapper_class in wrappers_to_test.items():
+        console.print(f"[bold]{name}[/bold]")
+        try:
+            wrapper = wrapper_class(timeout=timeout)
+            data = wrapper.fetch()
+            console.print(f"  [green]OK[/green]")
+            # Mostrar resumen de datos
+            for key, value in data.items():
+                if key == "source":
+                    continue
+                if isinstance(value, list):
+                    console.print(f"  - {key}: {len(value)} items")
+                elif isinstance(value, dict):
+                    console.print(f"  - {key}: {len(value)} keys")
+                else:
+                    console.print(f"  - {key}: {value}")
+        except Exception as e:
+            console.print(f"  [red]FAIL: {e}[/red]")
+        console.print()
+
+
 @app.command("status")
 def cmd_status() -> None:
     """Resumen de catálogo, drafts e historial."""

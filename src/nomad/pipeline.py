@@ -9,6 +9,7 @@ from nomad.agent.llm import get_llm_client
 from nomad.config import ROOT, get_config
 from nomad.ingest import fetch_all_rss, fetch_public_hard_data, load_inec_data
 from nomad.ingest.scrapers import scrape_all
+from nomad.mcp import ingest_mcp_sources
 from nomad.models import Catalog, DraftPost, PublishedRecord
 from nomad.process import (
     append_history,
@@ -64,6 +65,17 @@ def run_ingest(cfg: dict[str, Any] | None = None, env=None, paths: dict[str, Pat
     inec_dir = paths.get("raw_dir", ROOT / "data" / "raw") / "inec"
     inec_data = load_inec_data(inec_dir)
     hard.extend(inec_data)
+
+    logger.info("Ingesta MCP sources...")
+    try:
+        mcp_output_dir = paths.get("raw_dir", ROOT / "data" / "raw") / "mcp"
+        mcp_data = ingest_mcp_sources(output_dir=mcp_output_dir, timeout=timeout)
+        logger.info(
+            f"MCP: {mcp_data['metadata']['successful']}/{mcp_data['metadata']['total_sources']} sources OK"
+        )
+    except Exception as e:
+        logger.warning(f"MCP ingestion failed (continuing without MCP data): {e}")
+        mcp_data = None
 
     catalog = load_catalog(paths["catalog_file"])
     catalog = merge_catalog(catalog, news, hard)
