@@ -29,6 +29,7 @@ class MCPClient:
         self.timeout = timeout
         self.process: Optional[subprocess.Popen] = None
         self._request_id = 0
+        self._initialized = False
     
     def start(self) -> None:
         """
@@ -47,8 +48,98 @@ class MCPClient:
                 text=True,
                 bufsize=1,  # Line buffered
             )
+            # Send initialize request
+            self._initialize()
         except Exception as e:
             raise RuntimeError(f"Failed to start MCP server: {e}")
+    
+    def _initialize(self) -> None:
+        """Send initialize request to MCP server."""
+        if not self.process or self.process.poll() is not None:
+            raise RuntimeError("MCP server process not running")
+        
+        # Build initialize request
+        self._request_id += 1
+        request = {
+            "jsonrpc": "2.0",
+            "method": "initialize",
+            "params": {
+                "protocolVersion": "2024-11-05",
+                "capabilities": {},
+                "clientInfo": {
+                    "name": "nomad-mcp-client",
+                    "version": "1.0.0"
+                }
+            },
+            "id": self._request_id
+        }
+        
+        # Send request
+        try:
+            request_json = json.dumps(request) + "\n"
+            self.process.stdin.write(request_json)
+            self.process.stdin.flush()
+        except Exception as e:
+            raise RuntimeError(f"Failed to send initialize request: {e}")
+        
+        # Read response with timeout
+        response_data = {}
+        response_ready = threading.Event()
+        
+        def read_response():
+            try:
+                line = self.process.stdout.readline()
+                if line:
+                    response_data["raw"] = line.strip()
+                    response_ready.set()
+            except Exception as e:
+                response_data["error"] = str(e)
+                response_ready.set()
+        
+        reader_thread = threading.Thread(target=read_response, daemon=True)
+        reader_thread.start()
+        
+        # Wait for response or timeout
+        if not response_ready.wait(timeout=self.timeout):
+            # Timeout - kill process to prevent zombies
+            self.stop()
+            raise TimeoutError(f"Initialize timed out after {self.timeout}s")
+        
+        # Parse response
+        if "error" in response_data:
+            raise RuntimeError(f"Failed to read initialize response: {response_data['error']}")
+        
+        try:
+            response = json.loads(response_data["raw"])
+        except json.JSONDecodeError as e:
+            raise RuntimeError(f"Invalid JSON response: {e}")
+        
+        # Check for JSON-RPC errors
+        if "error" in response:
+            error_msg = response["error"].get("message", "Unknown error")
+            raise RuntimeError(f"MCP server initialize error: {error_msg}")
+        
+        # Send initialized notification
+        self._send_notification("notifications/initialized", {})
+        self._initialized = True
+    
+    def _send_notification(self, method: str, params: Dict[str, Any]) -> None:
+        """Send a notification to the MCP server."""
+        if not self.process or self.process.poll() is not None:
+            return
+        
+        notification = {
+            "jsonrpc": "2.0",
+            "method": method,
+            "params": params
+        }
+        
+        try:
+            notification_json = json.dumps(notification) + "\n"
+            self.process.stdin.write(notification_json)
+            self.process.stdin.flush()
+        except Exception:
+            pass
     
     def call_tool(self, tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -69,6 +160,9 @@ class MCPClient:
             >>> client.call_tool("get_breaking_news", {"limit": 10})
             {"articles": [...]}
         """
+        if not self._initialized:
+            raise RuntimeError("MCP client not initialized")
+        
         if not self.process or self.process.poll() is not None:
             raise RuntimeError("MCP server process not running")
         
@@ -157,6 +251,7 @@ class MCPClient:
                 pass
         finally:
             self.process = None
+            self._initialized = False
     
     def __enter__(self):
         """Context manager entry - start server."""

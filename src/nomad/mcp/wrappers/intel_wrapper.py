@@ -27,9 +27,8 @@ class IntelWrapper:
         Fetch data from world intelligence MCP server.
         
         Makes multiple tool calls to get:
-        - Global risk assessments
-        - Geopolitical events
-        - Regional stability indices
+        - Market quotes (S&P 500, Dow, Nasdaq)
+        - Forex rates
         
         Returns:
             Dictionary with consolidated intelligence data
@@ -50,40 +49,29 @@ class IntelWrapper:
             
             result = {
                 "source": self.server_name,
-                "risk_assessments": [],
-                "geopolitical_events": [],
-                "stability_indices": {},
+                "market_quotes": {},
+                "forex_rates": {},
             }
             
-            # Call 1: Get global risk assessments
+            # Call 1: Get market quotes
             try:
-                risks = client.call_tool(
-                    "get_risk_assessments",
-                    {"regions": ["americas", "europe", "asia"], "level": "high"}
+                market = client.call_tool(
+                    "intel_market_quotes",
+                    {"symbols": ["SPX", "DJI", "IXIC"]}
                 )
-                result["risk_assessments"] = risks.get("assessments", [])
+                result["market_quotes"] = market.get("quotes", [])
             except Exception as e:
-                result["risk_assessments_error"] = str(e)
+                result["market_quotes_error"] = str(e)
             
-            # Call 2: Get recent geopolitical events
+            # Call 2: Get forex rates
             try:
-                events = client.call_tool(
-                    "get_geopolitical_events",
-                    {"days": 7, "impact": "significant"}
+                forex = client.call_tool(
+                    "intel_forex_rates",
+                    {"base": "USD", "symbols": ["EUR", "CRC", "MXN"]}
                 )
-                result["geopolitical_events"] = events.get("events", [])
+                result["forex_rates"] = forex.get("data", {})
             except Exception as e:
-                result["geopolitical_events_error"] = str(e)
-            
-            # Call 3: Get regional stability indices
-            try:
-                stability = client.call_tool(
-                    "get_stability_indices",
-                    {"countries": ["USA", "CHN", "DEU", "BRA"]}
-                )
-                result["stability_indices"] = stability.get("indices", {})
-            except Exception as e:
-                result["stability_indices_error"] = str(e)
+                result["forex_rates_error"] = str(e)
             
             return result
             

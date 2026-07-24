@@ -1,33 +1,37 @@
 """MCP server configuration and command builder."""
 
+import sys
 from pathlib import Path
 from typing import List, Optional
 
 # Base path for MCP servers (relative to project root)
 MCP_BASE_PATH = Path("./mcp-servers")
 
+# Python executable path (use the same as the current interpreter)
+PYTHON_EXECUTABLE = sys.executable
+
 # Server configurations
 MCP_SERVER_CONFIG = {
     "news": {
-        "path": MCP_BASE_PATH / "news-server",
-        "command": "node",
-        "args": ["index.js"],
+        "path": MCP_BASE_PATH / "mcp-news",
+        "command": "cargo",
+        "args": ["run", "--release"],
         "enabled": True,
-        "description": "News and market data server (Node.js)",
+        "description": "News and market data server (Rust/GDELT)",
     },
     "world_intel": {
-        "path": MCP_BASE_PATH / "world-intel-server",
-        "command": "node",
-        "args": ["index.js"],
+        "path": MCP_BASE_PATH / "world-intel-mcp",
+        "command": PYTHON_EXECUTABLE,
+        "args": ["-m", "world_intel_mcp.server"],
         "enabled": True,
-        "description": "World intelligence and geopolitical data (Node.js)",
+        "description": "World intelligence and geopolitical data (Python)",
     },
     "imf": {
-        "path": MCP_BASE_PATH / "imf-server",
-        "command": "python",
-        "args": ["server.py"],
+        "path": MCP_BASE_PATH / "imf-mcp-server",
+        "command": "npx",
+        "args": ["-y", "@cyanheads/imf-mcp-server"],
         "enabled": True,
-        "description": "IMF economic indicators (Python)",
+        "description": "IMF economic indicators (Node.js)",
     },
 }
 
@@ -44,7 +48,7 @@ def get_server_command(server_name: str) -> Optional[List[str]]:
     
     Example:
         >>> get_server_command("news")
-        ['node', 'index.js']
+        ['cargo', 'run', '--release']
     """
     config = MCP_SERVER_CONFIG.get(server_name)
     
