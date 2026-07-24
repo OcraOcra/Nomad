@@ -31,12 +31,24 @@ def build_analysis_md(
     news: list[NewsItem],
     data: list[HardDataPoint],
 ) -> str:
+    # Separar datos globales de locales
+    global_data = [d for d in data if d.source.startswith("MCP") or d.source == "IMF"]
+    local_data = [d for d in data if not d.source.startswith("MCP") and d.source != "IMF"]
+    
     news_lines = "\n".join(
         f"- [{n.title}]({n.url}) ({n.source})"
         + (f" — cifras: {', '.join(n.stats_mentions[:4])}" if n.stats_mentions else "")
         for n in news
     )
-    data_lines = "\n".join(f"- {_format_data_line(d)}" for d in data) or "- _Sin datos duros numéricos_"
+    data_lines = "\n".join(f"- {_format_data_line(d)}" for d in local_data) or "- _Sin datos duros numéricos_"
+    
+    # Sección de contexto global
+    global_lines = ""
+    if global_data:
+        global_lines = "\n### Contexto Global\n\n"
+        for d in global_data:
+            global_lines += f"- {_format_data_line(d)}\n"
+    
     gaps = "\n".join(f"- {g}" for g in decision.gaps) or "- Ninguno crítico"
     return f"""### Decisión del agente
 
@@ -60,7 +72,7 @@ def build_analysis_md(
 ### Datos duros
 
 {data_lines}
-
+{global_lines}
 ### Gaps
 
 {gaps}
@@ -112,6 +124,22 @@ def build_linkedin_post_heuristic(
     # Párrafo 3: insight
     insight = decision.non_obvious_insight.strip()
 
+    # Párrafo 4: contexto global (si hay datos MCP)
+    global_context = ""
+    global_data = [d for d in data if d.source.startswith("MCP") or d.source == "IMF"]
+    if global_data:
+        global_lines = []
+        for d in global_data[:2]:  # máximo 2 puntos globales
+            if isinstance(d.value, (int, float)):
+                global_lines.append(
+                    f"{d.name.replace('_', ' ')}: {d.value}"
+                    f"{(' ' + d.unit) if d.unit else ''}"
+                )
+            elif isinstance(d.value, str) and len(d.value) < 100:
+                global_lines.append(d.value)
+        if global_lines:
+            global_context = f"\n\nEn el contexto global: {'. '.join(global_lines)}."
+
     # Bullets opcionales si hay varios datos
     bullets = ""
     numeric = [d for d in data if isinstance(d.value, (int, float))][:3]
@@ -145,7 +173,7 @@ def build_linkedin_post_heuristic(
 
 {context}
 
-{insight}{bullets}
+{insight}{global_context}{bullets}
 
 {q}
 

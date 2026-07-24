@@ -21,7 +21,9 @@ logger = logging.getLogger(__name__)
 PERSONA = """Eres un analista de política y datos de Costa Rica.
 Conversacional pero siempre fundamentado. Audiencia: profesionales en LinkedIn
 y redes (TikTok). No académico. Conectas noticias con datos duros (INEC, BCCR,
-Hacienda, RECOPE) y buscas insights no obvios."""
+Hacienda, RECOPE) y buscas insights no obvios. Cuando hay datos globales
+disponibles (mercados, IMF, geopolítica), los usas para dar contexto
+internacional al análisis tico."""
 
 
 def _cluster_by_category(news: list[NewsItem]) -> dict[str, list[NewsItem]]:
@@ -65,9 +67,11 @@ def _pick_related_data(hard: list[HardDataPoint], category: str) -> list[HardDat
         Category.ECONOMIA.value: [
             "tipo_cambio", "bccr", "recope", "inflacion", "tbp",
             "cba", "pobreza", "canasta", "empresas", "trabajadores",
+            "global_market", "imf_gdp", "imf_inflation", "global_financial",
         ],
         Category.SEGURIDAD.value: [
             "contexto", "aseguramiento", "c14", "nacimiento", "defuncion",
+            "global_risk", "global_geopolitical",
         ],
         Category.DESARROLLO_CANTONAL.value: [
             "contexto", "inec", "ipm", "pobreza", "nacimiento", "defuncion",
@@ -75,6 +79,7 @@ def _pick_related_data(hard: list[HardDataPoint], category: str) -> list[HardDat
         ],
         Category.POLITICA.value: [
             "tipo_cambio", "bccr", "hacienda", "deficit", "pobreza", "cba",
+            "global_risk", "global_stability", "global_geopolitical",
         ],
     }
     keys = preferred.get(category, [])
