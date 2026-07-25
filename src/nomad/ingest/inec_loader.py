@@ -1049,12 +1049,21 @@ def load_inec_data(inec_dir: Path) -> list[HardDataPoint]:
         logger.info("Directorio INEC no encontrado: %s", inec_dir)
         return []
 
+    # Archivos a ignorar (evita colisiones de substring matching)
+    IGNORE_SUBSTRINGS = ["_tabla22"]
+
     all_points: list[HardDataPoint] = []
     for filepath in sorted(inec_dir.iterdir()):
         if not filepath.is_file() or filepath.suffix not in (".xlsx", ".xls", ".csv"):
             continue
         name = filepath.name
         name_norm = _norm(name).lower()
+
+        # Verificar lista negra
+        if any(ign in name_norm for ign in IGNORE_SUBSTRINGS):
+            logger.debug("Ignorado (lista negra): %s", name)
+            continue
+
         matched = False
         for key, (needle, parser) in PARSERS.items():
             if _norm(needle).lower() in name_norm:

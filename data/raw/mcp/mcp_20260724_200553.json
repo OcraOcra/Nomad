@@ -1,0 +1,27 @@
+{
+  "timestamp": "2026-07-24T20:05:53.913833",
+  "sources": {
+    "imf": {
+      "source": "imf",
+      "gdp_data": {},
+      "inflation_data": {},
+      "fiscal_indicators": {}
+    },
+    "world_intel": {
+      "source": "world_intel",
+      "market_quotes": [],
+      "forex_rates": {}
+    },
+    "news": {
+      "source": "news",
+      "breaking_news": [],
+      "market_data": {},
+      "trending_topics": []
+    }
+  },
+  "metadata": {
+    "total_sources": 3,
+    "successful": 3,
+    "failed": 0
+  }
+}

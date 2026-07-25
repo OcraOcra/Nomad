@@ -117,6 +117,7 @@ def check_mcp_servers(timeout: int = 15) -> list[CheckResult]:
 
     for name, wrapper_class in wrappers.items():
         start = time.time()
+        elapsed = 0
         try:
             wrapper = wrapper_class(timeout=timeout)
             command = get_server_command(name)
@@ -143,6 +144,7 @@ def check_mcp_servers(timeout: int = 15) -> list[CheckResult]:
                     elapsed_ms=elapsed,
                 ))
             except TimeoutError:
+                elapsed = int((time.time() - start) * 1000)
                 results.append(CheckResult(
                     name=f"MCP {name}",
                     status="warn",
@@ -150,6 +152,7 @@ def check_mcp_servers(timeout: int = 15) -> list[CheckResult]:
                     elapsed_ms=elapsed,
                 ))
             except Exception as e:
+                elapsed = int((time.time() - start) * 1000)
                 results.append(CheckResult(
                     name=f"MCP {name}",
                     status="fail",
@@ -160,11 +163,12 @@ def check_mcp_servers(timeout: int = 15) -> list[CheckResult]:
                 client.stop()
 
         except Exception as e:
+            elapsed = int((time.time() - start) * 1000)
             results.append(CheckResult(
                 name=f"MCP {name}",
                 status="fail",
                 message=str(e)[:100],
-                elapsed_ms=int((time.time() - start) * 1000),
+                elapsed_ms=elapsed,
             ))
 
     return results

@@ -12,6 +12,8 @@ build/
 data/raw/*
 !data/raw/.gitkeep
 !data/raw/inec/**/*
+!data/raw/mcp/
+!data/raw/mcp/**
 data/processed/*
 !data/processed/.gitkeep
 data/drafts/*

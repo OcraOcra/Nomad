@@ -85,9 +85,7 @@ def run_ingest(cfg: dict[str, Any] | None = None, env=None, paths: dict[str, Pat
 
     catalog = load_catalog(paths["catalog_file"])
     catalog = merge_catalog(catalog, news, hard)
-    # persist solo el subset reciente procesado + hard
-    fresh = Catalog(news=news, hard_data=hard, updated_at=utcnow())
-    save_catalog(paths["catalog_file"], fresh)
+    save_catalog(paths["catalog_file"], catalog)
 
     # raw dump
     raw_path = paths["raw_dir"] / f"ingest_{utcnow().strftime('%Y%m%d_%H%M%S')}.json"
@@ -101,7 +99,7 @@ def run_ingest(cfg: dict[str, Any] | None = None, env=None, paths: dict[str, Pat
         },
     )
     logger.info("Catalogo: %d noticias, %d datos -> %s", len(news), len(hard), paths["catalog_file"])
-    return fresh
+    return catalog
 
 
 def run_analyze(

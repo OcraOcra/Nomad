@@ -1,0 +1,19 @@
+{
+  "timestamp": "2026-07-24T16:49:23.463357",
+  "sources": {
+    "news": {
+      "error": "Server 'news' not configured or not found"
+    },
+    "world_intel": {
+      "error": "Server 'world_intel' not configured or not found"
+    },
+    "imf": {
+      "error": "Server 'imf' not configured or not found"
+    }
+  },
+  "metadata": {
+    "total_sources": 3,
+    "successful": 0,
+    "failed": 3
+  }
+}
