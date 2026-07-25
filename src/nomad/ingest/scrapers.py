@@ -159,8 +159,19 @@ def scrape_ameliarueda(client: httpx.Client | None = None) -> list[NewsItem]:
 
 def scrape_all() -> list[NewsItem]:
     """Ejecuta todos los scrapers en paralelo."""
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
     items: list[NewsItem] = []
-    with httpx.Client(timeout=25, follow_redirects=True, headers=HEADERS) as client:
-        items.extend(scrape_crhoy(client))
-        items.extend(scrape_ameliarueda(client))
+    scrapers = [scrape_crhoy, scrape_ameliarueda]
+
+    with ThreadPoolExecutor(max_workers=len(scrapers)) as executor:
+        futures = {executor.submit(scraper): scraper.__name__ for scraper in scrapers}
+        for future in as_completed(futures):
+            name = futures[future]
+            try:
+                result = future.result()
+                items.extend(result)
+            except Exception as exc:
+                logger.warning("Scraper %s fallo: %s", name, exc)
+
     return items

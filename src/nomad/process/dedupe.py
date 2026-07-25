@@ -3,11 +3,11 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 
 from nomad.models import NewsItem, PublishedRecord
-from nomad.utils import normalize_url, topic_key
+from nomad.utils import normalize_url, topic_key, utcnow
 
 
 def dedupe_news(items: list[NewsItem]) -> list[NewsItem]:
-    """Deduplica por URL normalizada y por topic_key similar el mismo día."""
+    """Deduplica por URL normalizada y por topic_key (ventana de lookback completo)."""
     by_url: dict[str, NewsItem] = {}
     for item in items:
         url = normalize_url(item.url)
@@ -47,7 +47,7 @@ def dedupe_news(items: list[NewsItem]) -> list[NewsItem]:
 
 
 def filter_recent(items: list[NewsItem], lookback_days: int, now: datetime | None = None) -> list[NewsItem]:
-    now = now or datetime.utcnow()
+    now = now or utcnow()
     cutoff = now - timedelta(days=lookback_days)
     out: list[NewsItem] = []
     for item in items:
@@ -64,7 +64,7 @@ def filter_history_cooldown(
     now: datetime | None = None,
 ) -> list[NewsItem]:
     """Excluye temas ya publicados en la ventana de cooldown."""
-    now = now or datetime.utcnow()
+    now = now or utcnow()
     cutoff = now - timedelta(days=cooldown_days)
     blocked_topics: set[str] = set()
     blocked_urls: set[str] = set()

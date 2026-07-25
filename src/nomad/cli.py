@@ -143,7 +143,6 @@ def cmd_health(
 ) -> None:
     """Verifica salud completa: frescura de datos, RSS, MCP, API keys."""
     _setup_log()
-    import time as _time
     from nomad.process.freshness import check_freshness, Freshness
     from nomad.health import run_health_check
 

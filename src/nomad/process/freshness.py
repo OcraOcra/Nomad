@@ -6,6 +6,7 @@ from enum import Enum
 from typing import Any
 
 from nomad.models import Catalog, HardDataPoint
+from nomad.utils import utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +40,7 @@ def _parse_period_to_date(period: str) -> datetime | None:
     import re
 
     period = period.strip().lower()
-    now = datetime.utcnow()
+    now = utcnow()
 
     # "junio_2026" or "2026-06" or "junio 2026"
     m = re.search(r"(\d{4})", period)
@@ -102,7 +103,7 @@ def check_freshness(catalog: Catalog) -> list[dict[str, Any]]:
             latest[src] = pd
             best_period[src] = d.period
 
-    now = datetime.utcnow()
+    now = utcnow()
     alerts: list[dict[str, Any]] = []
 
     for src, info in EXPECTED_CYCLES.items():

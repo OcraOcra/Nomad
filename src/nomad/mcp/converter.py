@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import Any
 
 from nomad.models import Category, HardDataPoint
+from nomad.utils import utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +42,7 @@ def mcp_to_hard_data_points(mcp_data: dict[str, Any]) -> list[HardDataPoint]:
                     name="global_breaking_news",
                     value=f"{len(headlines)} titulares globales",
                     unit="headlines",
-                    period=datetime.utcnow().strftime("%Y-%m-%d"),
+                    period=utcnow().strftime("%Y-%m-%d"),
                     source="MCP-News",
                     url="",
                     category=Category.ECONOMIA,
@@ -62,7 +63,7 @@ def mcp_to_hard_data_points(mcp_data: dict[str, Any]) -> list[HardDataPoint]:
                             name=f"global_market_{symbol.lower()}",
                             value=price,
                             unit=data.get("currency", "USD"),
-                            period=datetime.utcnow().strftime("%Y-%m-%d"),
+                            period=utcnow().strftime("%Y-%m-%d"),
                             source="MCP-News",
                             url="",
                             category=Category.ECONOMIA,
@@ -84,7 +85,7 @@ def mcp_to_hard_data_points(mcp_data: dict[str, Any]) -> list[HardDataPoint]:
                     name="global_financial_news",
                     value=f"{len(fin_headlines)} noticias financieras",
                     unit="headlines",
-                    period=datetime.utcnow().strftime("%Y-%m-%d"),
+                    period=utcnow().strftime("%Y-%m-%d"),
                     source="MCP-News",
                     url="",
                     category=Category.ECONOMIA,
@@ -107,7 +108,7 @@ def mcp_to_hard_data_points(mcp_data: dict[str, Any]) -> list[HardDataPoint]:
                     name="global_risk_assessment",
                     value=len(high_risks),
                     unit="alertas",
-                    period=datetime.utcnow().strftime("%Y-%m-%d"),
+                    period=utcnow().strftime("%Y-%m-%d"),
                     source="MCP-Intel",
                     url="",
                     category=Category.POLITICA,
@@ -127,7 +128,7 @@ def mcp_to_hard_data_points(mcp_data: dict[str, Any]) -> list[HardDataPoint]:
                     name="global_geopolitical_events",
                     value=f"{len(event_summaries)} eventos",
                     unit="eventos",
-                    period=datetime.utcnow().strftime("%Y-%m-%d"),
+                    period=utcnow().strftime("%Y-%m-%d"),
                     source="MCP-Intel",
                     url="",
                     category=Category.POLITICA,
@@ -146,7 +147,7 @@ def mcp_to_hard_data_points(mcp_data: dict[str, Any]) -> list[HardDataPoint]:
                         name=f"global_stability_{country.lower()}",
                         value=round(idx, 2),
                         unit="índice",
-                        period=datetime.utcnow().strftime("%Y-%m-%d"),
+                        period=utcnow().strftime("%Y-%m-%d"),
                         source="MCP-Intel",
                         url="",
                         category=Category.POLITICA,
@@ -183,7 +184,13 @@ def mcp_to_hard_data_points(mcp_data: dict[str, Any]) -> list[HardDataPoint]:
         if isinstance(inflation, dict):
             for country, data in inflation.items():
                 if isinstance(data, dict):
-                    latest = data.get("latest") or data.get("2024") or data.get("2023")
+                    # Buscar el año más reciente disponible
+                    year_keys = sorted(
+                        [k for k in data.keys() if k.isdigit() and len(k) == 4],
+                        reverse=True,
+                    )
+                    latest_key = year_keys[0] if year_keys else None
+                    latest = data.get("latest") or (data.get(latest_key) if latest_key else None)
                     if latest is not None:
                         try:
                             infl_val = float(str(latest).replace(",", ""))
@@ -191,7 +198,7 @@ def mcp_to_hard_data_points(mcp_data: dict[str, Any]) -> list[HardDataPoint]:
                                 name=f"imf_inflation_{country.lower()}",
                                 value=infl_val,
                                 unit="%",
-                                period="2024",
+                                period=latest_key or "unknown",
                                 source="IMF",
                                 url="",
                                 category=Category.ECONOMIA,

@@ -5,12 +5,13 @@ from datetime import datetime
 from typing import Any
 
 from nomad.models import AnalysisDecision, DraftPost, HardDataPoint, NewsItem
+from nomad.utils import utcnow
 
 logger = logging.getLogger(__name__)
 
 
 def _week_label(dt: datetime | None = None) -> str:
-    dt = dt or datetime.utcnow()
+    dt = dt or utcnow()
     iso = dt.isocalendar()
     return f"Semana {iso.week}, {iso.year}"
 
@@ -229,6 +230,10 @@ def build_linkedin_post_llm(
             ],
         )
         text = (r.choices[0].message.content or "").strip()
+        if text:
+            words = text.split()
+            if len(words) > max_words:
+                text = " ".join(words[:max_words]) + "..."
         return text or None
     except Exception as exc:
         logger.warning("LLM writer falló: %s", exc)

@@ -58,7 +58,7 @@ def append_history(path: Path, record: PublishedRecord) -> list[PublishedRecord]
 
 def save_draft_markdown(drafts_dir: Path, draft: DraftPost) -> Path:
     drafts_dir.mkdir(parents=True, exist_ok=True)
-    stamp = draft.created_at.strftime("%Y%m%d")
+    stamp = draft.created_at.strftime("%Y%m%d_%H%M%S")
     safe_theme = "".join(c if c.isalnum() or c in "-_" else "-" for c in draft.theme.lower())[:50]
     path = drafts_dir / f"{stamp}_{safe_theme or draft.id[:8]}.md"
     conf = draft.confidence.value.upper()
