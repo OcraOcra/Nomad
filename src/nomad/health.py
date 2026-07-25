@@ -12,7 +12,7 @@ from typing import Any
 import httpx
 from dotenv import load_dotenv
 
-from nomad.config import load_yaml_config
+from nomad.config import get_config, load_yaml_config
 
 # Cargar variables de entorno desde .env
 load_dotenv()
@@ -177,8 +177,8 @@ def check_mcp_servers(timeout: int = 15) -> list[CheckResult]:
 # ── API Keys externas ────────────────────────────────────────────
 
 
-def check_alpha_vantage(timeout: float = 10.0) -> CheckResult:
-    key = os.getenv("ALPHA_VANTAGE_API_KEY")
+def check_alpha_vantage(timeout: float = 10.0, key: str | None = None) -> CheckResult:
+    key = key or os.getenv("ALPHA_VANTAGE_API_KEY")
     if not key:
         return CheckResult(
             name="Alpha Vantage",
@@ -233,8 +233,8 @@ def check_alpha_vantage(timeout: float = 10.0) -> CheckResult:
         )
 
 
-def check_eia(timeout: float = 10.0) -> CheckResult:
-    key = os.getenv("EIA_API_KEY")
+def check_eia(timeout: float = 10.0, key: str | None = None) -> CheckResult:
+    key = key or os.getenv("EIA_API_KEY")
     if not key:
         return CheckResult(
             name="EIA",
@@ -299,6 +299,12 @@ def run_health_check(
     """Ejecuta todas las verificaciones de salud."""
     report = HealthReport()
 
+    # Cargar config para API keys
+    try:
+        _, env, _ = get_config()
+    except Exception:
+        env = None
+
     if not skip_rss:
         report.checks.append(check_global_rss())
 
@@ -306,7 +312,9 @@ def run_health_check(
         report.checks.extend(check_mcp_servers())
 
     if not skip_keys:
-        report.checks.append(check_alpha_vantage())
-        report.checks.append(check_eia())
+        av_key = getattr(env, "alpha_vantage_api_key", None) if env else None
+        eia_key = getattr(env, "eia_api_key", None) if env else None
+        report.checks.append(check_alpha_vantage(key=av_key))
+        report.checks.append(check_eia(key=eia_key))
 
     return report
