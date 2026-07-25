@@ -209,7 +209,7 @@ def cmd_test_mcp(
         "-s",
         help="Fuente a probar: news, world_intel, imf, all",
     ),
-    timeout: int = typer.Option(60, "--timeout", "-t", help="Timeout en segundos"),
+    timeout: int = typer.Option(90, "--timeout", "-t", help="Timeout en segundos"),
 ) -> None:
     """Prueba wrappers MCP individuales o todos."""
     import time as _time
