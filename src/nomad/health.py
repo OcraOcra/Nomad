@@ -10,8 +10,12 @@ from pathlib import Path
 from typing import Any
 
 import httpx
+from dotenv import load_dotenv
 
 from nomad.config import load_yaml_config
+
+# Cargar variables de entorno desde .env
+load_dotenv()
 
 logger = logging.getLogger(__name__)
 
@@ -237,14 +241,20 @@ def check_eia(timeout: float = 10.0) -> CheckResult:
     start = time.time()
     try:
         r = httpx.get(
-            "https://api.eia.gov/v2/series/PET.RBRTE.D/data",
-            params={"api_key": key, "out": "json", "limit": 1},
+            "https://api.eia.gov/v2/petroleum/pri/spt/data/",
+            params={
+                "api_key": key,
+                "frequency": "daily",
+                "data[0]": "value",
+                "facets[series][]": "RBRTE",
+                "length": 1,
+            },
             timeout=timeout,
         )
         elapsed = int((time.time() - start) * 1000)
         data = r.json()
 
-        if "response" in data and "data" in data["response"]:
+        if r.status_code == 200 and "response" in data:
             return CheckResult(
                 name="EIA",
                 status="ok",
