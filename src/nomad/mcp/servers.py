@@ -14,8 +14,8 @@ PYTHON_EXECUTABLE = sys.executable
 MCP_SERVER_CONFIG = {
     "news": {
         "path": MCP_BASE_PATH / "mcp-news",
-        "command": "cargo",
-        "args": ["run", "--release"],
+        "command": str(MCP_BASE_PATH / "mcp-news" / "target" / "release" / "mcp-news.exe"),
+        "args": [],
         "enabled": True,
         "description": "News and market data server (Rust/GDELT)",
     },

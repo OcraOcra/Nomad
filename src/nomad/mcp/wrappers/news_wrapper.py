@@ -27,9 +27,9 @@ class NewsWrapper:
         Fetch data from news MCP server.
         
         Makes multiple tool calls to get:
-        - Breaking news headlines
-        - Market data (stocks, indices)
-        - Financial news summaries
+        - Breaking news (search_news)
+        - Market data (yfinance_chart)
+        - Trending topics (get_trending_topics)
         
         Returns:
             Dictionary with consolidated news data
@@ -52,38 +52,38 @@ class NewsWrapper:
                 "source": self.server_name,
                 "breaking_news": [],
                 "market_data": {},
-                "financial_news": [],
+                "trending_topics": [],
             }
             
-            # Call 1: Get breaking news
+            # Call 1: Search breaking news
             try:
-                breaking = client.call_tool(
-                    "get_breaking_news",
-                    {"limit": 10, "category": "business"}
+                news = client.call_tool(
+                    "search_news",
+                    {"query": "breaking news", "limit": 5}
                 )
-                result["breaking_news"] = breaking.get("articles", [])
+                result["breaking_news"] = news.get("articles", [])
             except Exception as e:
                 result["breaking_news_error"] = str(e)
             
             # Call 2: Get market data
             try:
                 market = client.call_tool(
-                    "get_market_data",
-                    {"symbols": ["SPX", "DJI", "IXIC"]}
+                    "yfinance_chart",
+                    {"symbol": "SPY", "period": "1d"}
                 )
                 result["market_data"] = market.get("data", {})
             except Exception as e:
                 result["market_data_error"] = str(e)
             
-            # Call 3: Get financial news
+            # Call 3: Get trending topics
             try:
-                financial = client.call_tool(
-                    "get_financial_news",
-                    {"limit": 5, "topic": "economy"}
+                trending = client.call_tool(
+                    "get_trending_topics",
+                    {"country": "US", "limit": 5}
                 )
-                result["financial_news"] = financial.get("articles", [])
+                result["trending_topics"] = trending.get("topics", [])
             except Exception as e:
-                result["financial_news_error"] = str(e)
+                result["trending_topics_error"] = str(e)
             
             return result
             
