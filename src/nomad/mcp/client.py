@@ -15,7 +15,7 @@ class MCPClient:
     Handles process lifecycle, timeout management, and zombie process prevention.
     """
     
-    def __init__(self, server_path: Path, args: list[str], timeout: int = 30):
+    def __init__(self, server_path: Path, args: list[str], timeout: int = 60, init_timeout: int = 180):
         """
         Initialize MCP client.
         
@@ -23,10 +23,12 @@ class MCPClient:
             server_path: Working directory for the server process
             args: Command arguments to start the server (e.g., ['node', 'index.js'])
             timeout: Default timeout in seconds for tool calls
+            init_timeout: Timeout for the initial handshake (servers with many tools need more time)
         """
         self.server_path = server_path
         self.args = args
         self.timeout = timeout
+        self.init_timeout = init_timeout
         self.process: Optional[subprocess.Popen] = None
         self._request_id = 0
         self._initialized = False
@@ -99,11 +101,11 @@ class MCPClient:
         reader_thread = threading.Thread(target=read_response, daemon=True)
         reader_thread.start()
         
-        # Wait for response or timeout
-        if not response_ready.wait(timeout=self.timeout):
+        # Wait for response or timeout (init_timeout is longer for servers with many tools)
+        if not response_ready.wait(timeout=self.init_timeout):
             # Timeout - kill process to prevent zombies
             self.stop()
-            raise TimeoutError(f"Initialize timed out after {self.timeout}s")
+            raise TimeoutError(f"Initialize timed out after {self.init_timeout}s")
         
         # Parse response
         if "error" in response_data:

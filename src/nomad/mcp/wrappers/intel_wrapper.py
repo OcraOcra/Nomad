@@ -64,7 +64,8 @@ class IntelWrapper:
         if not command or not server_path:
             raise RuntimeError(f"Server '{self.server_name}' not configured or not found")
         
-        client = MCPClient(server_path, command, timeout=self.timeout)
+        # world_intel tiene 113 herramientas, necesita más tiempo de inicialización
+        client = MCPClient(server_path, command, timeout=self.timeout, init_timeout=180)
         
         try:
             client.start()

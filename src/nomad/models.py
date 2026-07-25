@@ -83,6 +83,7 @@ class DraftPost(BaseModel):
     confidence: Confidence = Confidence.BAJO
     confidence_score: float = 0.0
     analysis_md: str = ""
+    deep_analysis_md: str = ""
     linkedin_post: str = ""
     sources: list[dict[str, str]] = Field(default_factory=list)
     news_ids: list[str] = Field(default_factory=list)

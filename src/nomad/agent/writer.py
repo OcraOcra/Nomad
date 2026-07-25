@@ -80,6 +80,117 @@ def build_analysis_md(
 """
 
 
+def build_deep_analysis_md(
+    decision: AnalysisDecision,
+    news: list[NewsItem],
+    data: list[HardDataPoint],
+    mcp_data: dict[str, Any] | None = None,
+) -> str:
+    """Genera un análisis profundo con todos los datos, tablas y metodología."""
+    
+    # Separar datos por fuente
+    local_data = [d for d in data if not d.source.startswith("MCP") and d.source != "IMF"]
+    global_data = [d for d in data if d.source.startswith("MCP") or d.source == "IMF"]
+    
+    # Tabla de noticias
+    news_table = "| # | Fuente | Titular | Cifras |\n|---|--------|---------|--------|\n"
+    for i, n in enumerate(news[:10], 1):
+        stats = ", ".join(n.stats_mentions[:3]) if n.stats_mentions else "-"
+        news_table += f"| {i} | {n.source} | [{n.title[:60]}...]({n.url}) | {stats} |\n"
+    
+    # Tabla de datos locales
+    local_table = "| Indicador | Valor | Unidad | Periodo | Fuente |\n|-----------|-------|--------|---------|--------|\n"
+    for d in local_data[:15]:
+        val = f"{d.value:,.2f}" if isinstance(d.value, float) else str(d.value)
+        local_table += f"| {d.name.replace('_', ' ')} | {val} | {d.unit} | {d.period} | {d.source} |\n"
+    
+    # Tabla de datos globales (MCP)
+    global_table = ""
+    if global_data:
+        global_table = "| Indicador | Valor | Unidad | Fuente |\n|-----------|-------|--------|--------|\n"
+        for d in global_data[:10]:
+            val = f"{d.value:,.2f}" if isinstance(d.value, float) else str(d.value)
+            global_table += f"| {d.name.replace('_', ' ')} | {val} | {d.unit} | {d.source} |\n"
+    
+    # MCP detallado
+    mcp_section = ""
+    if mcp_data and "sources" in mcp_data:
+        mcp_section = "\n### Datos MCP (mercados globales)\n\n"
+        for source_name, source_data in mcp_data["sources"].items():
+            if "error" in source_data:
+                mcp_section += f"- **{source_name}**: Error - {source_data['error']}\n"
+                continue
+            mcp_section += f"- **{source_name}**:\n"
+            for key, value in source_data.items():
+                if key == "source":
+                    continue
+                if isinstance(value, list) and value:
+                    mcp_section += f"  - {key}: {len(value)} items\n"
+                    for item in value[:3]:
+                        if isinstance(item, dict):
+                            mcp_section += f"    - {item}\n"
+                elif isinstance(value, dict) and value:
+                    mcp_section += f"  - {key}: {len(value)} keys\n"
+    
+    # Metodología
+    methodology = """
+### Metodología
+
+1. **Ingesta**: RSS (4 medios CR + 5 globales) + APIs (Hacienda, RECOPE) + MCP (news, world_intel, imf)
+2. **Categorización**: Clasificación automática por keywords (seguridad, economía, política, desarrollo cantonal)
+3. **Deduplicación**: Por URL normalizada + topic_key
+4. **Análisis**: Agente multi-turn con Groq (Llama 3.3 70B)
+   - Turno 1: Triage heurístico (clusters por tema)
+   - Turno 2: Gate de suficiencia (≥2 fuentes + dato)
+   - Turno 3: Refinamiento de insight (LLM)
+   - Turno 4: Gate de interés (go/no-go)
+5. **Redacción**: Post LinkedIn (≤280 palabras) + análisis profundo
+"""
+    
+    return f"""# Análisis Profundo — {decision.theme}
+
+**Categoría**: {decision.category.value}  
+**Confianza**: {decision.confidence.value} ({decision.confidence_score:.2f})  
+**Fecha**: {utcnow().strftime('%Y-%m-%d %H:%M')}
+
+---
+
+## 1. Decisión del Agente
+
+- **Suficiente info**: {"sí" if decision.sufficient_info else "no"}
+- **Interesante**: {"sí" if decision.interesting else "no"}
+- **Ángulo narrativo**: {decision.narrative_angle}
+
+## 2. Insight Principal
+
+{decision.non_obvious_insight}
+
+## 3. Noticias Analizadas
+
+{news_table}
+
+## 4. Datos Duros (Costa Rica)
+
+{local_table}
+
+## 5. Datos Globales (MCP)
+
+{global_table or "_Sin datos MCP disponibles_"}
+
+{mcp_section}
+
+## 6. Análisis del Agente
+
+{decision.reasoning}
+
+## 7. Gaps Identificados
+
+{chr(10).join(f"- {g}" for g in decision.gaps) or "- Ninguno crítico"}
+
+{methodology}
+"""
+
+
 def build_linkedin_post_heuristic(
     decision: AnalysisDecision,
     news: list[NewsItem],
@@ -248,6 +359,7 @@ def compose_draft(
     cfg: dict[str, Any],
     llm_client: Any = None,
     llm_model: str = "deepseek-chat",
+    mcp_data: dict[str, Any] | None = None,
 ) -> DraftPost:
     voice = cfg.get("voice") or {}
     agent_cfg = cfg.get("agent") or {}
@@ -255,6 +367,7 @@ def compose_draft(
     persona = voice.get("persona", "")
 
     analysis_md = build_analysis_md(decision, news, data)
+    deep_analysis_md = build_deep_analysis_md(decision, news, data, mcp_data=mcp_data)
     post = build_linkedin_post_llm(
         decision,
         news,
@@ -292,6 +405,7 @@ def compose_draft(
         confidence=decision.confidence,
         confidence_score=decision.confidence_score,
         analysis_md=analysis_md,
+        deep_analysis_md=deep_analysis_md,
         linkedin_post=post,
         sources=sources,
         news_ids=[n.id for n in news],

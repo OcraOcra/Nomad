@@ -99,6 +99,18 @@ def save_draft_markdown(drafts_dir: Path, draft: DraftPost) -> Path:
 - news_ids: {", ".join(draft.news_ids) or "—"}
 - data_ids: {", ".join(draft.data_ids) or "—"}
 """
+
+    # Agregar deep analysis si existe
+    if draft.deep_analysis_md:
+        body += f"""
+
+---
+
+## Análisis Profundo
+
+{draft.deep_analysis_md}
+"""
+
     path.write_text(body, encoding="utf-8")
     draft.markdown_path = str(path)
     # también JSON al lado

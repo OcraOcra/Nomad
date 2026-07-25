@@ -169,9 +169,18 @@ def run_draft(
     llm_result = get_llm_client(cfg, env)
     llm_client, llm_model = (llm_result[0], llm_result[1]) if llm_result else (None, "llama-3.3-70b-versatile")
 
+    # Cargar datos MCP para el deep analysis
+    mcp_data = None
+    mcp_latest = paths.get("raw_dir", ROOT / "data" / "raw") / "mcp" / "mcp_latest.json"
+    if mcp_latest.exists():
+        try:
+            mcp_data = read_json(mcp_latest)
+        except Exception:
+            pass
+
     agent = AnalysisAgent(cfg, llm_client=llm_client, llm_model=llm_model)
     news, data = agent.selected_payload(catalog, decision)
-    draft = compose_draft(decision, news, data, cfg=cfg, llm_client=llm_client, llm_model=llm_model)
+    draft = compose_draft(decision, news, data, cfg=cfg, llm_client=llm_client, llm_model=llm_model, mcp_data=mcp_data)
 
     # Agregar seccion de frescura de datos al analisis
     try:
