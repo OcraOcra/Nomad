@@ -1,6 +1,6 @@
 # Nomad CR
 
-Pipeline semanal de analisis politico y de datos de Costa Rica para posts de LinkedIn.
+Pipeline semanal de analisis politico y de datos de Costa Rica para posts y noticias. 
 
 **Flujo:** RSS + APIs publicas + INEC datasets -> categorizacion/dedup -> agente multi-turn (Groq) -> post markdown.
 
