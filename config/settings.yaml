@@ -66,8 +66,7 @@ public_apis:
     tipo_cambio: "https://api.hacienda.go.cr/indicadores/tc"
   recope:
     precio_consumidor: "https://api.recope.go.cr/ventas/precio/consumidor"
-    precio_internacional: "https://api.recope.go.cr/precio-internacional"
-  # BCCR requiere token de suscripción (opcional vía env BCCR_TOKEN / BCCR_EMAIL)
+  # BCCR requiere token de suscripcion (opcional via env BCCR_TOKEN / BCCR_EMAIL)
   bccr:
     wsdl: "https://gee.bccr.fi.cr/Indicadores/Suscripciones/WS/wsindicadoreseconomicos.asmx"
     indicators:
@@ -75,13 +74,6 @@ public_apis:
       tipo_cambio_venta: 318
       tbp: 3541
       inflacion_interanual: 25485
-  # Fuentes abiertas complementarias (HTML/JSON públicos)
-  inec:
-    # Portal de datos; scrapers ligeros / endpoints documentados en código
-    base: "https://www.inec.cr"
-  datos_abiertos:
-    # CKAN-style catalogs cuando estén disponibles
-    enabled: true
 
 agent:
   # model: dejar vacio para usar el default de cada proveedor

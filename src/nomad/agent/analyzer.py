@@ -15,6 +15,7 @@ from nomad.models import (
     NewsItem,
 )
 from nomad.agent.llm import get_llm_client
+from nomad.config import load_yaml_config
 
 logger = logging.getLogger(__name__)
 
@@ -108,6 +109,8 @@ def _heuristic_decision(
     *,
     min_sources: int = 2,
     min_hard: int = 1,
+    conf_high: float = 0.75,
+    conf_medium: float = 0.45,
 ) -> AnalysisDecision:
     clusters = _rank_clusters(_cluster_by_category(news))
     if not clusters:
@@ -154,9 +157,9 @@ def _heuristic_decision(
     conf_score += min(0.15, score / 30)
     conf_score = round(min(conf_score, 0.95), 2)
 
-    if conf_score >= 0.75:
+    if conf_score >= conf_high:
         confidence = Confidence.ALTO
-    elif conf_score >= 0.45:
+    elif conf_score >= conf_medium:
         confidence = Confidence.MEDIO
     else:
         confidence = Confidence.BAJO
@@ -384,6 +387,9 @@ class AnalysisAgent:
         self.min_sources = int(self.cfg.get("min_sources_for_post", 2))
         self.min_hard = int(self.cfg.get("min_hard_data_points", 1))
         self.temperature = float(self.cfg.get("temperature", 0.4))
+        confidence_cfg = self.cfg.get("confidence_thresholds") or {}
+        self.conf_high = float(confidence_cfg.get("high", 0.75))
+        self.conf_medium = float(confidence_cfg.get("medium", 0.45))
         self.turns_log: list[dict[str, Any]] = []
 
     def run(self, catalog: Catalog) -> AnalysisDecision:
@@ -392,7 +398,8 @@ class AnalysisAgent:
 
         # Turn 1 — triage local
         d1 = _heuristic_decision(
-            news, hard, min_sources=self.min_sources, min_hard=self.min_hard
+            news, hard, min_sources=self.min_sources, min_hard=self.min_hard,
+            conf_high=self.conf_high, conf_medium=self.conf_medium
         )
         self.turns_log.append({"turn": 1, "name": "triage_heuristico", "decision": d1.model_dump()})
 
