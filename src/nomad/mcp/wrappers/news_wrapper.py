@@ -12,7 +12,7 @@ class NewsWrapper:
     Provides access to breaking news, market data, and financial news.
     """
     
-    def __init__(self, timeout: int = 30):
+    def __init__(self, timeout: int = 60):
         """
         Initialize news wrapper.
         

@@ -12,7 +12,7 @@ class IMFWrapper:
     Provides access to IMF economic indicators, forecasts, and policy data.
     """
     
-    def __init__(self, timeout: int = 30):
+    def __init__(self, timeout: int = 60):
         """
         Initialize IMF wrapper.
         

@@ -12,7 +12,7 @@ class IntelWrapper:
     Provides access to geopolitical data, global events, and intelligence reports.
     """
     
-    def __init__(self, timeout: int = 30):
+    def __init__(self, timeout: int = 60):
         """
         Initialize intel wrapper.
         

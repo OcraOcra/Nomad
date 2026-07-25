@@ -103,7 +103,7 @@ def check_global_rss(timeout: float = 10.0) -> CheckResult:
 # ── MCP servers ──────────────────────────────────────────────────
 
 
-def check_mcp_servers(timeout: int = 15) -> list[CheckResult]:
+def check_mcp_servers(timeout: int = 30) -> list[CheckResult]:
     from nomad.mcp.wrappers import NewsWrapper, IntelWrapper, IMFWrapper
     from nomad.mcp.client import MCPClient
     from nomad.mcp.servers import get_server_command, get_server_path
