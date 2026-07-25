@@ -26,6 +26,11 @@ dependencies = [
   "schedule>=1.2.1",
 ]
 
+[project.optional-dependencies]
+dev = [
+  "pytest>=9.0.0",
+]
+
 [project.scripts]
 nomad = "nomad.cli:main"
 
