@@ -135,55 +135,71 @@ def cmd_publish(
 
 
 @app.command("health")
-def cmd_health() -> None:
-    """Verifica la frescura de los datos cargados y muestra alertas."""
+def cmd_health(
+    skip_rss: bool = typer.Option(False, "--skip-rss", help="Omitir verificacion RSS"),
+    skip_mcp: bool = typer.Option(False, "--skip-mcp", help="Omitir verificacion MCP"),
+    skip_keys: bool = typer.Option(False, "--skip-keys", help="Omitir verificacion API keys"),
+    skip_freshness: bool = typer.Option(False, "--skip-freshness", help="Omitir verificacion frescura"),
+) -> None:
+    """Verifica salud completa: frescura de datos, RSS, MCP, API keys."""
     _setup_log()
+    import time as _time
     from nomad.process.freshness import check_freshness, Freshness
+    from nomad.health import run_health_check
 
     cfg, _, paths = get_config()
-    catalog = load_catalog(paths["catalog_file"])
-    alerts = check_freshness(catalog)
 
-    if not alerts:
-        console.print("[green]Sin alertas de frescura.[/green]")
-        return
+    # 1. Frescura de datos (existente)
+    if not skip_freshness:
+        catalog = load_catalog(paths["catalog_file"])
+        alerts = check_freshness(catalog)
 
-    from rich.table import Table
+        if alerts:
+            from rich.table import Table
+            table = Table(title="Frescura de Datos")
+            table.add_column("Dataset")
+            table.add_column("Periodo mas reciente")
+            table.add_column("Estado")
+            table.add_column("Ciclo esperado")
 
-    table = Table(title="Frescura de Datos")
-    table.add_column("Dataset")
-    table.add_column("Periodo mas reciente")
-    table.add_column("Estado")
-    table.add_column("Ciclo esperado")
+            for a in alerts:
+                status = a["status"]
+                if status == Freshness.EXPIRED:
+                    icon = "[bold red]VENCIDO[/bold red]"
+                elif status == Freshness.WARNING:
+                    icon = "[yellow]PROXIMO[/yellow]"
+                else:
+                    icon = "[green]FRESCO[/green]"
+                table.add_row(a["name"], a["period"], icon, f"{a['cycle_months']} meses")
 
-    for a in alerts:
-        status = a["status"]
-        if status == Freshness.EXPIRED:
-            icon = "[bold red]VENCIDO[/bold red]"
-        elif status == Freshness.WARNING:
-            icon = "[yellow]PROXIMO[/yellow]"
+            console.print(table)
+            console.print()
+            expired = [a for a in alerts if a["status"] == Freshness.EXPIRED]
+            warning = [a for a in alerts if a["status"] == Freshness.WARNING]
+            if expired:
+                console.print(f"[red]{len(expired)} datasets VENCIDOS[/red]")
+                for a in expired:
+                    console.print(f"  - {a['message']}")
+            if warning:
+                console.print(f"[yellow]{len(warning)} datasets por vencer[/yellow]")
+                for a in warning:
+                    console.print(f"  - {a['message']}")
         else:
-            icon = "[green]FRESCO[/green]"
+            console.print("[green]Sin alertas de frescura.[/green]")
+        console.print()
 
-        table.add_row(
-            a["name"],
-            a["period"],
-            icon,
-            f"{a['cycle_months']} meses",
-        )
+    # 2. Health checks nuevos (RSS, MCP, API keys)
+    report = run_health_check(
+        skip_rss=skip_rss,
+        skip_mcp=skip_mcp,
+        skip_keys=skip_keys,
+    )
 
-    console.print(table)
+    console.print(report.summary)
     console.print()
-    expired = [a for a in alerts if a["status"] == Freshness.EXPIRED]
-    warning = [a for a in alerts if a["status"] == Freshness.WARNING]
-    if expired:
-        console.print(f"[red]{len(expired)} datasets VENCIDOS[/red]")
-        for a in expired:
-            console.print(f"  - {a['message']}")
-    if warning:
-        console.print(f"[yellow]{len(warning)} datasets por vencer[/yellow]")
-        for a in warning:
-            console.print(f"  - {a['message']}")
+
+    if not report.ok:
+        raise typer.Exit(1)
 
 
 @app.command("test-mcp")
@@ -192,13 +208,15 @@ def cmd_test_mcp(
         None,
         "--source",
         "-s",
-        help="Nombre del wrapper a probar (news, world_intel, imf). Si no se especifica, prueba todos.",
+        help="Fuente a probar: news, world_intel, imf, all",
     ),
     timeout: int = typer.Option(30, "--timeout", "-t", help="Timeout en segundos"),
 ) -> None:
-    """Prueba wrappers MCP individuales o todos en paralelo."""
+    """Prueba wrappers MCP individuales o todos."""
+    import time as _time
     _setup_log()
     from nomad.mcp.wrappers import NewsWrapper, IntelWrapper, IMFWrapper
+    from nomad.mcp.servers import get_server_command, get_server_path
 
     wrappers_map = {
         "news": NewsWrapper,
@@ -206,36 +224,87 @@ def cmd_test_mcp(
         "imf": IMFWrapper,
     }
 
-    if source:
+    if source and source != "all":
         if source not in wrappers_map:
-            console.print(f"[red]Error: wrapper '{source}' no existe[/red]")
-            console.print(f"Wrappers disponibles: {', '.join(wrappers_map.keys())}")
+            console.print(f"[red]Error: fuente '{source}' no existe[/red]")
+            console.print(f"Fuentes disponibles: {', '.join(wrappers_map.keys())}, all")
             raise typer.Exit(1)
-        wrappers_to_test = {source: wrappers_map[source]}
+        sources_to_test = {source: wrappers_map[source]}
     else:
-        wrappers_to_test = wrappers_map
+        sources_to_test = wrappers_map
 
-    console.print(f"[cyan]Probando {len(wrappers_to_test)} wrapper(s) MCP...[/cyan]\n")
+    console.print(f"[cyan]Probando {len(sources_to_test)} fuente(s) MCP...[/cyan]\n")
 
-    for name, wrapper_class in wrappers_to_test.items():
+    results: dict[str, str] = {}
+
+    for name, wrapper_class in sources_to_test.items():
         console.print(f"[bold]{name}[/bold]")
+        start = _time.time()
+
+        command = get_server_command(name)
+        server_path = get_server_path(name)
+        if not command or not server_path:
+            console.print("  [red]FAIL[/red]: Servidor no encontrado o no configurado")
+            results[name] = "fail"
+            console.print()
+            continue
+
         try:
             wrapper = wrapper_class(timeout=timeout)
             data = wrapper.fetch()
-            console.print(f"  [green]OK[/green]")
-            # Mostrar resumen de datos
+            elapsed = int((_time.time() - start) * 1000)
+
+            total_items = 0
+            for key, value in data.items():
+                if key == "source":
+                    continue
+                if isinstance(value, list):
+                    total_items += len(value)
+                elif isinstance(value, dict):
+                    total_items += len(value)
+
+            if total_items > 0:
+                console.print(f"  [green]OK[/green]: {total_items} items ({elapsed}ms)")
+                results[name] = "ok"
+            else:
+                console.print(f"  [yellow]WARN[/yellow]: API respondio pero sin datos ({elapsed}ms)")
+                results[name] = "warn"
+
             for key, value in data.items():
                 if key == "source":
                     continue
                 if isinstance(value, list):
                     console.print(f"  - {key}: {len(value)} items")
+                    for item in value[:3]:
+                        if isinstance(item, dict):
+                            title = item.get("title", item.get("name", str(item)[:60]))
+                            console.print(f"    * {title}")
+                        else:
+                            console.print(f"    * {str(item)[:60]}")
                 elif isinstance(value, dict):
                     console.print(f"  - {key}: {len(value)} keys")
+                    for i, (k, v) in enumerate(value.items()):
+                        if i >= 3:
+                            break
+                        console.print(f"    * {k}: {v}")
                 else:
                     console.print(f"  - {key}: {value}")
+
+            for key, value in data.items():
+                if key.endswith("_error"):
+                    console.print(f"  [yellow]! {key}: {value}[/yellow]")
+
         except Exception as e:
-            console.print(f"  [red]FAIL: {e}[/red]")
+            elapsed = int((_time.time() - start) * 1000)
+            console.print(f"  [red]FAIL[/red]: {str(e)[:100]} ({elapsed}ms)")
+            results[name] = "fail"
+
         console.print()
+
+    console.print("[bold]Resumen MCP:[/bold]")
+    for name, status in results.items():
+        icon = {"ok": "[green]OK[/green]", "warn": "[yellow]WARN[/yellow]", "fail": "[red]FAIL[/red]"}.get(status, "?")
+        console.print(f"  {icon} {name}")
 
 
 @app.command("status")

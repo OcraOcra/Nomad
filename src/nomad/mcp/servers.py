@@ -28,8 +28,8 @@ MCP_SERVER_CONFIG = {
     },
     "imf": {
         "path": MCP_BASE_PATH / "imf-mcp-server",
-        "command": "npx",
-        "args": ["-y", "@cyanheads/imf-mcp-server"],
+        "command": str(Path("C:/Program Files/nodejs/node.exe")),
+        "args": ["dist/index.js"],
         "enabled": True,
         "description": "IMF economic indicators (Node.js)",
     },
