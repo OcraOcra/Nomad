@@ -1,8 +1,30 @@
 """Wrapper for IMF MCP server."""
 
+import json
 from typing import Dict, Any
 from ..client import MCPClient
 from ..servers import get_server_command, get_server_path
+
+
+def _extract_mcp_result(response: dict) -> Any:
+    """
+    Extrae el resultado real de una respuesta MCP.
+    
+    MCP devuelve: {"content": [{"type": "text", "text": "JSON string"}], "isError": false}
+    """
+    if not isinstance(response, dict):
+        return response
+    
+    if "content" in response:
+        content = response["content"]
+        if isinstance(content, list) and len(content) > 0:
+            text = content[0].get("text", "")
+            try:
+                return json.loads(text)
+            except (json.JSONDecodeError, TypeError):
+                return text
+    
+    return response
 
 
 class IMFWrapper:
@@ -57,31 +79,43 @@ class IMFWrapper:
             
             # Call 1: Get GDP data
             try:
-                gdp = client.call_tool(
-                    "get_gdp",
-                    {"countries": ["CRI", "USA", "MEX"], "years": [2023, 2024, 2025]}
+                raw = client.call_tool(
+                    "imf_query_dataset",
+                    {"dataflow": "PGI", "key": "CRI+USA+MXN..NGDP_RPCH", "start": "2022", "end": "2025"}
                 )
-                result["gdp_data"] = gdp.get("data", {})
+                gdp = _extract_mcp_result(raw)
+                if isinstance(gdp, dict):
+                    result["gdp_data"] = gdp.get("data", gdp.get("series", gdp))
+                elif isinstance(gdp, list):
+                    result["gdp_data"] = {"records": gdp}
             except Exception as e:
                 result["gdp_data_error"] = str(e)
             
             # Call 2: Get inflation data
             try:
-                inflation = client.call_tool(
-                    "get_inflation",
-                    {"countries": ["CRI", "USA", "MEX"], "indicator": "CPI"}
+                raw = client.call_tool(
+                    "imf_query_dataset",
+                    {"dataflow": "CPI", "key": "CRI+USA+MXN.PCPI_IX", "start": "2022", "end": "2025"}
                 )
-                result["inflation_data"] = inflation.get("data", {})
+                inflation = _extract_mcp_result(raw)
+                if isinstance(inflation, dict):
+                    result["inflation_data"] = inflation.get("data", inflation.get("series", inflation))
+                elif isinstance(inflation, list):
+                    result["inflation_data"] = {"records": inflation}
             except Exception as e:
                 result["inflation_data_error"] = str(e)
             
-            # Call 3: Get fiscal indicators
+            # Call 3: List databases (más simple, menos likely de fallar)
             try:
-                fiscal = client.call_tool(
-                    "get_fiscal_indicators",
-                    {"countries": ["CRI"], "indicators": ["debt_to_gdp", "fiscal_balance"]}
+                raw = client.call_tool(
+                    "imf_list_databases",
+                    {}
                 )
-                result["fiscal_indicators"] = fiscal.get("data", {})
+                databases = _extract_mcp_result(raw)
+                if isinstance(databases, list):
+                    result["fiscal_indicators"] = {"databases": databases[:10]}
+                elif isinstance(databases, dict):
+                    result["fiscal_indicators"] = databases
             except Exception as e:
                 result["fiscal_indicators_error"] = str(e)
             

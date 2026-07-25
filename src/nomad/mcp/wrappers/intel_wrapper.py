@@ -1,8 +1,30 @@
 """Wrapper for world intelligence MCP server."""
 
+import json
 from typing import Dict, Any
 from ..client import MCPClient
 from ..servers import get_server_command, get_server_path
+
+
+def _extract_mcp_result(response: dict) -> Any:
+    """
+    Extrae el resultado real de una respuesta MCP.
+    
+    MCP devuelve: {"content": [{"type": "text", "text": "JSON string"}], "isError": false}
+    """
+    if not isinstance(response, dict):
+        return response
+    
+    if "content" in response:
+        content = response["content"]
+        if isinstance(content, list) and len(content) > 0:
+            text = content[0].get("text", "")
+            try:
+                return json.loads(text)
+            except (json.JSONDecodeError, TypeError):
+                return text
+    
+    return response
 
 
 class IntelWrapper:
@@ -49,27 +71,35 @@ class IntelWrapper:
             
             result = {
                 "source": self.server_name,
-                "market_quotes": {},
+                "market_quotes": [],
                 "forex_rates": {},
             }
             
             # Call 1: Get market quotes
             try:
-                market = client.call_tool(
+                raw = client.call_tool(
                     "intel_market_quotes",
                     {"symbols": ["SPX", "DJI", "IXIC"]}
                 )
-                result["market_quotes"] = market.get("quotes", [])
+                market = _extract_mcp_result(raw)
+                if isinstance(market, dict):
+                    result["market_quotes"] = market.get("quotes", market.get("data", []))
+                elif isinstance(market, list):
+                    result["market_quotes"] = market
             except Exception as e:
                 result["market_quotes_error"] = str(e)
             
             # Call 2: Get forex rates
             try:
-                forex = client.call_tool(
+                raw = client.call_tool(
                     "intel_forex_rates",
                     {"base": "USD", "symbols": ["EUR", "CRC", "MXN"]}
                 )
-                result["forex_rates"] = forex.get("data", {})
+                forex = _extract_mcp_result(raw)
+                if isinstance(forex, dict):
+                    result["forex_rates"] = forex
+                elif isinstance(forex, str):
+                    result["forex_rates"] = {"raw": forex}
             except Exception as e:
                 result["forex_rates_error"] = str(e)
             

@@ -1,8 +1,32 @@
 """Wrapper for news MCP server."""
 
-from typing import Dict, Any
+import json
+from typing import Dict, Any, List
 from ..client import MCPClient
 from ..servers import get_server_command, get_server_path
+
+
+def _extract_mcp_result(response: dict) -> Any:
+    """
+    Extrae el resultado real de una respuesta MCP.
+    
+    MCP devuelve: {"content": [{"type": "text", "text": "JSON string"}], "isError": false}
+    Esta función parsea el JSON string y devuelve el contenido.
+    """
+    if not isinstance(response, dict):
+        return response
+    
+    # Si tiene "content", extraer el texto JSON
+    if "content" in response:
+        content = response["content"]
+        if isinstance(content, list) and len(content) > 0:
+            text = content[0].get("text", "")
+            try:
+                return json.loads(text)
+            except (json.JSONDecodeError, TypeError):
+                return text
+    
+    return response
 
 
 class NewsWrapper:
@@ -57,31 +81,43 @@ class NewsWrapper:
             
             # Call 1: Search breaking news
             try:
-                news = client.call_tool(
+                raw = client.call_tool(
                     "search_news",
                     {"query": "breaking news", "limit": 5}
                 )
-                result["breaking_news"] = news.get("articles", [])
+                news = _extract_mcp_result(raw)
+                if isinstance(news, list):
+                    result["breaking_news"] = news
+                elif isinstance(news, dict):
+                    result["breaking_news"] = news.get("articles", news.get("results", []))
             except Exception as e:
                 result["breaking_news_error"] = str(e)
             
             # Call 2: Get market data
             try:
-                market = client.call_tool(
+                raw = client.call_tool(
                     "yfinance_chart",
                     {"symbol": "SPY", "period": "1d"}
                 )
-                result["market_data"] = market.get("data", {})
+                market = _extract_mcp_result(raw)
+                if isinstance(market, dict):
+                    result["market_data"] = market
+                elif isinstance(market, str):
+                    result["market_data"] = {"raw": market}
             except Exception as e:
                 result["market_data_error"] = str(e)
             
             # Call 3: Get trending topics
             try:
-                trending = client.call_tool(
+                raw = client.call_tool(
                     "get_trending_topics",
                     {"country": "US", "limit": 5}
                 )
-                result["trending_topics"] = trending.get("topics", [])
+                trending = _extract_mcp_result(raw)
+                if isinstance(trending, list):
+                    result["trending_topics"] = trending
+                elif isinstance(trending, dict):
+                    result["trending_topics"] = trending.get("topics", trending.get("results", []))
             except Exception as e:
                 result["trending_topics_error"] = str(e)
             
