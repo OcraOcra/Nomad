@@ -80,6 +80,78 @@ def build_analysis_md(
 """
 
 
+def _build_cross_context(
+    decision: AnalysisDecision,
+    news: list[NewsItem],
+    data: list[HardDataPoint],
+    mcp_data: dict[str, Any] | None = None,
+) -> str:
+    """Genera contexto cruzado entre datos locales y globales."""
+    lines: list[str] = []
+    
+    # 1. Tipo de cambio vs forex global
+    tc_venta = next((d for d in data if "tipo_cambio_usd_venta" in d.name), None)
+    if tc_venta and mcp_data:
+        forex = None
+        for src in (mcp_data.get("sources") or {}).values():
+            fr = src.get("forex_rates", {})
+            if isinstance(fr, dict) and fr.get("rates"):
+                forex = fr["rates"]
+                break
+        if forex:
+            lines.append(
+                f"**Tipo de cambio local**: CRC/USD {tc_venta.value} | "
+                f"**Forex global**: {', '.join(f'{k}={v}' for k, v in list(forex.items())[:3])}"
+            )
+    
+    # 2. Precio combustible vs noticias
+    recope = next((d for d in data if "recope" in d.name.lower() and isinstance(d.value, (int, float))), None)
+    if recope:
+        econ_news = [n for n in news if n.category.value == "economia"]
+        if econ_news:
+            lines.append(
+                f"**Combustible**: {recope.name.replace('_', ' ')} a {recope.value} {recope.unit} | "
+                f"**Noticias economía**: {len(econ_news)} esta semana"
+            )
+    
+    # 3. Pobreza + CBA
+    poverty = next((d for d in data if "pobreza_total" in d.name and isinstance(d.value, (int, float))), None)
+    cba = next((d for d in data if "cba_cba" in d.name and isinstance(d.value, (int, float))), None)
+    if poverty and cba:
+        lines.append(
+            f"**Pobreza**: {poverty.value}% | "
+            f"**CBA**: {cba.value:,.0f} CRC/mes — la brecha entre el indicador macro "
+            f"y lo que siente el hogar promedio es donde se juega la narrativa política."
+        )
+    
+    # 4. CPI vs IPC local
+    cpi_global = None
+    if mcp_data:
+        for src in (mcp_data.get("sources") or {}).values():
+            cpi_list = src.get("cpi_data", [])
+            if isinstance(cpi_list, list) and cpi_list:
+                cpi_global = cpi_list[-1]
+                break
+    ipc_local = next((d for d in data if "ipc_variacion" in d.name and isinstance(d.value, (int, float))), None)
+    if cpi_global and ipc_local:
+        lines.append(
+            f"**IPC local** (INEC): {ipc_local.value}% | "
+            f"**CPI global** (IMF): {cpi_global.get('value', '?')} — "
+            f"comparar fuentes permite detectar divergencias metodológicas."
+        )
+    
+    # 5. Seguridad
+    oij_total = next((d for d in data if "delitos_total" in d.name and isinstance(d.value, (int, float))), None)
+    if oij_total:
+        lines.append(
+            f"**Delitos registrados**: {int(oij_total.value)} casos (OIJ)"
+        )
+    
+    if not lines:
+        return "_Sin datos suficientes para contexto cruzado._\n"
+    return "\n\n".join(lines) + "\n"
+
+
 def build_deep_analysis_md(
     decision: AnalysisDecision,
     news: list[NewsItem],
@@ -104,33 +176,52 @@ def build_deep_analysis_md(
         val = f"{d.value:,.2f}" if isinstance(d.value, float) else str(d.value)
         local_table += f"| {d.name.replace('_', ' ')} | {val} | {d.unit} | {d.period} | {d.source} |\n"
     
-    # Tabla de datos globales (MCP)
+    # Tabla de datos globales (MCP) - integrar datos reales del mcp_data
     global_table = ""
-    if global_data:
-        global_table = "| Indicador | Valor | Unidad | Fuente |\n|-----------|-------|--------|--------|\n"
-        for d in global_data[:10]:
-            val = f"{d.value:,.2f}" if isinstance(d.value, float) else str(d.value)
-            global_table += f"| {d.name.replace('_', ' ')} | {val} | {d.unit} | {d.source} |\n"
-    
-    # MCP detallado
     mcp_section = ""
+    
+    # Datos MCP detallados
     if mcp_data and "sources" in mcp_data:
-        mcp_section = "\n### Datos MCP (mercados globales)\n\n"
+        global_table = "| Fuente | Dato | Valor | Periodo |\n|--------|------|-------|--------|\n"
         for source_name, source_data in mcp_data["sources"].items():
             if "error" in source_data:
-                mcp_section += f"- **{source_name}**: Error - {source_data['error']}\n"
+                global_table += f"| {source_name} | Error | {source_data['error'][:50]} | - |\n"
                 continue
-            mcp_section += f"- **{source_name}**:\n"
-            for key, value in source_data.items():
-                if key == "source":
-                    continue
-                if isinstance(value, list) and value:
-                    mcp_section += f"  - {key}: {len(value)} items\n"
-                    for item in value[:3]:
-                        if isinstance(item, dict):
-                            mcp_section += f"    - {item}\n"
-                elif isinstance(value, dict) and value:
-                    mcp_section += f"  - {key}: {len(value)} keys\n"
+            
+            # CPI data
+            cpi = source_data.get("cpi_data", [])
+            if isinstance(cpi, list) and cpi:
+                latest = cpi[-1]
+                if isinstance(latest, dict) and latest.get("value"):
+                    global_table += f"| IMF | CPI Costa Rica | {latest['value']} | {latest.get('period', '-')} |\n"
+            
+            # GDP data
+            gdp = source_data.get("gdp_data", [])
+            if isinstance(gdp, list) and gdp:
+                latest = gdp[-1]
+                if isinstance(latest, dict) and latest.get("value"):
+                    global_table += f"| IMF | PIB crecimiento | {latest['value']:.1f}% | {latest.get('period', '-')} |\n"
+            
+            # Forex rates
+            forex = source_data.get("forex_rates", {})
+            if isinstance(forex, dict) and forex.get("rates"):
+                for curr, rate in list(forex["rates"].items())[:3]:
+                    global_table += f"| World Intel | USD/{curr} | {rate} | {forex.get('date', '-')} |\n"
+            
+            # Market quotes
+            quotes = source_data.get("market_quotes", [])
+            if isinstance(quotes, list):
+                for q in quotes[:3]:
+                    if isinstance(q, dict) and q.get("price"):
+                        global_table += f"| News | {q.get('symbol', '?')} | {q['price']} | - |\n"
+            
+            # Breaking news count
+            news_items = source_data.get("breaking_news", [])
+            if isinstance(news_items, list) and news_items:
+                global_table += f"| News | Noticias globales | {len(news_items)} titulares | hoy |\n"
+    
+    if not global_table:
+        global_table = "_Sin datos MCP disponibles_\n"
     
     # Metodología
     methodology = """
@@ -146,6 +237,8 @@ def build_deep_analysis_md(
    - Turno 4: Gate de interés (go/no-go)
 5. **Redacción**: Post LinkedIn (≤280 palabras) + análisis profundo
 """
+
+    cross_context = _build_cross_context(decision, news, data, mcp_data=mcp_data)
     
     return f"""# Análisis Profundo — {decision.theme}
 
@@ -175,15 +268,17 @@ def build_deep_analysis_md(
 
 ## 5. Datos Globales (MCP)
 
-{global_table or "_Sin datos MCP disponibles_"}
+{global_table}
 
-{mcp_section}
+## 6. Contexto Cruzado
 
-## 6. Análisis del Agente
+{_build_cross_context(decision, news, data, mcp_data)}
+
+## 7. Análisis del Agente
 
 {decision.reasoning}
 
-## 7. Gaps Identificados
+## 8. Gaps Identificados
 
 {chr(10).join(f"- {g}" for g in decision.gaps) or "- Ninguno crítico"}
 
