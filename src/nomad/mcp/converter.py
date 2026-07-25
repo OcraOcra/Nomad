@@ -157,76 +157,51 @@ def mcp_to_hard_data_points(mcp_data: dict[str, Any]) -> list[HardDataPoint]:
     # === IMF ===
     imf = sources.get("imf", {})
     if "error" not in imf:
-        # GDP data
-        gdp = imf.get("gdp_data", {})
-        if isinstance(gdp, dict):
-            for country, years in gdp.items():
-                if isinstance(years, dict):
-                    latest_year = max(years.keys()) if years else None
-                    if latest_year:
-                        try:
-                            gdp_val = float(str(years[latest_year]).replace(",", ""))
-                            points.append(HardDataPoint(
-                                name=f"imf_gdp_{country.lower()}",
-                                value=gdp_val,
-                                unit="USD billions",
-                                period=str(latest_year),
-                                source="IMF",
-                                url="",
-                                category=Category.ECONOMIA,
-                                meta={"type": "gdp", "country": country},
-                            ))
-                        except (ValueError, TypeError):
-                            pass
+        # CPI data (formato nuevo: lista de dicts con period/value)
+        cpi_data = imf.get("cpi_data", [])
+        if isinstance(cpi_data, list) and cpi_data:
+            latest = cpi_data[-1]  # El último periodo
+            if isinstance(latest, dict) and latest.get("value") is not None:
+                points.append(HardDataPoint(
+                    name="imf_cpi_costa_rica",
+                    value=round(latest["value"], 2),
+                    unit="índice",
+                    period=latest.get("period", "unknown"),
+                    source="IMF",
+                    url="",
+                    category=Category.ECONOMIA,
+                    meta={"type": "cpi", "country": "CRI", "series": latest.get("series", "")},
+                ))
         
-        # Inflation data
-        inflation = imf.get("inflation_data", {})
-        if isinstance(inflation, dict):
-            for country, data in inflation.items():
-                if isinstance(data, dict):
-                    # Buscar el año más reciente disponible
-                    year_keys = sorted(
-                        [k for k in data.keys() if k.isdigit() and len(k) == 4],
-                        reverse=True,
-                    )
-                    latest_key = year_keys[0] if year_keys else None
-                    latest = data.get("latest") or (data.get(latest_key) if latest_key else None)
-                    if latest is not None:
-                        try:
-                            infl_val = float(str(latest).replace(",", ""))
-                            points.append(HardDataPoint(
-                                name=f"imf_inflation_{country.lower()}",
-                                value=infl_val,
-                                unit="%",
-                                period=latest_key or "unknown",
-                                source="IMF",
-                                url="",
-                                category=Category.ECONOMIA,
-                                meta={"type": "inflation", "country": country},
-                            ))
-                        except (ValueError, TypeError):
-                            pass
+        # GDP data (formato nuevo: lista de dicts con period/value)
+        gdp_data = imf.get("gdp_data", [])
+        if isinstance(gdp_data, list) and gdp_data:
+            latest = gdp_data[-1]
+            if isinstance(latest, dict) and latest.get("value") is not None:
+                points.append(HardDataPoint(
+                    name="imf_gdp_growth_costa_rica",
+                    value=round(latest["value"], 2),
+                    unit="%",
+                    period=latest.get("period", "unknown"),
+                    source="IMF",
+                    url="",
+                    category=Category.ECONOMIA,
+                    meta={"type": "gdp_growth", "country": "CRI", "series": latest.get("series", "")},
+                ))
         
-        # Fiscal indicators
-        fiscal = imf.get("fiscal_indicators", {})
-        if isinstance(fiscal, dict):
-            for country, indicators in fiscal.items():
-                if isinstance(indicators, dict):
-                    for indicator_name, val in indicators.items():
-                        try:
-                            fiscal_val = float(str(val).replace(",", ""))
-                            points.append(HardDataPoint(
-                                name=f"imf_{indicator_name}_{country.lower()}",
-                                value=fiscal_val,
-                                unit="%",
-                                period="2024",
-                                source="IMF",
-                                url="",
-                                category=Category.ECONOMIA,
-                                meta={"type": "fiscal", "country": country, "indicator": indicator_name},
-                            ))
-                        except (ValueError, TypeError):
-                            pass
+        # Available databases (para contexto)
+        databases = imf.get("available_databases", [])
+        if isinstance(databases, list) and databases:
+            points.append(HardDataPoint(
+                name="imf_available_databases",
+                value=len(databases),
+                unit="dataflows",
+                period="2025",
+                source="IMF",
+                url="https://data.imf.org/",
+                category=Category.ECONOMIA,
+                meta={"type": "metadata", "sample": [d.get("id", "") for d in databases[:5]]},
+            ))
     
     logger.info(f"MCP: {len(points)} HardDataPoint ({len(points)} globales)")
     return points
