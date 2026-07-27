@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-07-27T16:36:09.803367",
+  "timestamp": "2026-07-25T00:43:46.322964",
   "sources": {
     "imf": {
       "source": "imf",
@@ -182,11 +182,11 @@
       ],
       "forex_rates": {
         "base": "USD",
-        "date": "2026-07-27",
+        "date": "2026-07-24",
         "rates": {
-          "MXN": 17.4569
+          "MXN": 17.4803
         },
-        "fetched_at": "2026-07-27T22:35:51.244504+00:00",
+        "fetched_at": "2026-07-25T06:43:30.988861+00:00",
         "source": "ecb-forex"
       }
     },
@@ -197,9 +197,13 @@
         "currency": "USD",
         "data_points": 5,
         "exchange": "PCX",
-        "previous_close": 742.09,
-        "price": 739.09,
+        "previous_close": 743.29,
+        "price": 738.93,
         "prices": [
+          {
+            "close": 742.0900268554688,
+            "timestamp": 1784554200
+          },
           {
             "close": 748.280029296875,
             "timestamp": 1784640600
@@ -215,10 +219,6 @@
           {
             "close": 738.9299926757812,
             "timestamp": 1784899800
-          },
-          {
-            "close": 739.0900268554688,
-            "timestamp": 1785159000
           }
         ],
         "range": "5d",

@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-07-27T16:36:09.803367",
+  "timestamp": "2026-07-25T00:42:29.340947",
   "sources": {
     "imf": {
       "source": "imf",
@@ -182,24 +182,69 @@
       ],
       "forex_rates": {
         "base": "USD",
-        "date": "2026-07-27",
+        "date": "2026-07-24",
         "rates": {
-          "MXN": 17.4569
+          "MXN": 17.4803
         },
-        "fetched_at": "2026-07-27T22:35:51.244504+00:00",
+        "fetched_at": "2026-07-25T06:42:04.417092+00:00",
         "source": "ecb-forex"
       }
     },
     "news": {
       "source": "news",
-      "breaking_news": [],
+      "breaking_news": [
+        {
+          "date": "20260725T061500Z",
+          "language": "English",
+          "source": "gloucesteradvocate.com.au",
+          "source_country": "Australia",
+          "title": "What happened on day three of Labor national conference",
+          "url": "https://www.gloucesteradvocate.com.au/story/9317408/what-happened-on-day-three-of-labor-national-conference/"
+        },
+        {
+          "date": "20260725T061500Z",
+          "language": "English",
+          "source": "gloucesteradvocate.com.au",
+          "source_country": "Australia",
+          "title": "Officer shot , man found dead after stand - off",
+          "url": "https://www.gloucesteradvocate.com.au/story/9317335/officer-shot-man-found-dead-after-stand-off/"
+        },
+        {
+          "date": "20260725T061500Z",
+          "language": "English",
+          "source": "begadistrictnews.com.au",
+          "source_country": "Australia",
+          "title": "Officer shot , man found dead after stand - off",
+          "url": "https://www.begadistrictnews.com.au/story/9317335/officer-shot-man-found-dead-after-stand-off/"
+        },
+        {
+          "date": "20260725T061500Z",
+          "language": "English",
+          "source": "narrominenewsonline.com.au",
+          "source_country": "Australia",
+          "title": "Labor to introduce lockout laws for striking workers",
+          "url": "https://www.narrominenewsonline.com.au/story/9317399/labor-to-introduce-lockout-laws-for-striking-workers/"
+        },
+        {
+          "date": "20260725T061500Z",
+          "language": "English",
+          "source": "narrominenewsonline.com.au",
+          "source_country": "Australia",
+          "title": "Officer shot , man found dead after stand - off",
+          "url": "https://www.narrominenewsonline.com.au/story/9317335/officer-shot-man-found-dead-after-stand-off/"
+        }
+      ],
       "market_data": {
         "currency": "USD",
         "data_points": 5,
         "exchange": "PCX",
-        "previous_close": 742.09,
-        "price": 739.09,
+        "previous_close": 743.29,
+        "price": 738.93,
         "prices": [
+          {
+            "close": 742.0900268554688,
+            "timestamp": 1784554200
+          },
           {
             "close": 748.280029296875,
             "timestamp": 1784640600
@@ -215,10 +260,6 @@
           {
             "close": 738.9299926757812,
             "timestamp": 1784899800
-          },
-          {
-            "close": 739.0900268554688,
-            "timestamp": 1785159000
           }
         ],
         "range": "5d",

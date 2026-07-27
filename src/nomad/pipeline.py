@@ -31,7 +31,7 @@ from nomad.utils import utcnow, write_json
 logger = logging.getLogger(__name__)
 
 
-def run_ingest(cfg: dict[str, Any] | None = None, env=None, paths: dict[str, Path] | None = None) -> Catalog:
+def run_ingest(cfg: dict[str, Any] | None = None, env=None, paths: dict[str, Path] | None = None) -> tuple[Catalog, dict[str, Any] | None]:
     cfg, env, paths = _resolve(cfg, env, paths)
     ing = cfg.get("ingestion") or {}
     timeout = float(ing.get("request_timeout_seconds", 25))
@@ -69,6 +69,7 @@ def run_ingest(cfg: dict[str, Any] | None = None, env=None, paths: dict[str, Pat
 
     logger.info("Ingesta MCP sources...")
     mcp_points: list = []
+    mcp_data: dict[str, Any] | None = None
     try:
         mcp_output_dir = paths.get("raw_dir", ROOT / "data" / "raw") / "mcp"
         mcp_data = ingest_mcp_sources(output_dir=mcp_output_dir, timeout=timeout)
@@ -99,7 +100,7 @@ def run_ingest(cfg: dict[str, Any] | None = None, env=None, paths: dict[str, Pat
         },
     )
     logger.info("Catalogo: %d noticias, %d datos -> %s", len(news), len(hard), paths["catalog_file"])
-    return catalog
+    return catalog, mcp_data
 
 
 def run_analyze(
@@ -137,6 +138,7 @@ def run_draft(
     env=None,
     paths: dict[str, Path] | None = None,
     force: bool = False,
+    mcp_data: dict[str, Any] | None = None,
 ) -> DraftPost | None:
     cfg, env, paths = _resolve(cfg, env, paths)
     if catalog is None:
@@ -168,15 +170,6 @@ def run_draft(
 
     llm_result = get_llm_client(cfg, env)
     llm_client, llm_model = (llm_result[0], llm_result[1]) if llm_result else (None, "llama-3.3-70b-versatile")
-
-    # Cargar datos MCP para el deep analysis
-    mcp_data = None
-    mcp_latest = paths.get("raw_dir", ROOT / "data" / "raw") / "mcp" / "mcp_latest.json"
-    if mcp_latest.exists():
-        try:
-            mcp_data = read_json(mcp_latest)
-        except Exception:
-            pass
 
     agent = AnalysisAgent(cfg, llm_client=llm_client, llm_model=llm_model)
     news, data = agent.selected_payload(catalog, decision)
@@ -214,9 +207,9 @@ def run_weekly(
 ) -> DraftPost | None:
     """Pipeline completo: ingesta → análisis multi-turn → redacción → markdown."""
     cfg, env, paths = _resolve(cfg, env, paths)
-    catalog = run_ingest(cfg, env, paths)
+    catalog, mcp_data = run_ingest(cfg, env, paths)
     decision, catalog = run_analyze(catalog, cfg, env, paths)
-    return run_draft(decision, catalog, cfg, env, paths, force=force)
+    return run_draft(decision, catalog, cfg, env, paths, force=force, mcp_data=mcp_data)
 
 
 def mark_published(
