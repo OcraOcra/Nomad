@@ -1,0 +1,19 @@
+{
+  "timestamp": "2026-09-28T20:21:13.888339",
+  "sources": {
+    "imf": {
+      "error": "Failed to start MCP server: [Errno 2] No such file or directory: 'C:/Program Files/nodejs/node.exe'"
+    },
+    "news": {
+      "error": "Failed to start MCP server: [Errno 2] No such file or directory: 'mcp-servers/mcp-news/target/release/mcp-news.exe'"
+    },
+    "world_intel": {
+      "error": "Failed to start MCP server: Initialize timed out after 180s"
+    }
+  },
+  "metadata": {
+    "total_sources": 3,
+    "successful": 0,
+    "failed": 3
+  }
+}
