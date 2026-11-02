@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-10-26T19:40:37.440510",
+  "timestamp": "2026-11-02T22:33:41.381854",
   "sources": {
     "news": {
       "error": "Failed to start MCP server: [Errno 2] No such file or directory: 'mcp-servers/mcp-news/target/release/mcp-news.exe'"
