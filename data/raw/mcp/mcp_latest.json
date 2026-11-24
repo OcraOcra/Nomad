@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-11-16T23:08:15.121355",
+  "timestamp": "2026-11-24T01:21:17.197768",
   "sources": {
     "imf": {
       "error": "Failed to start MCP server: [Errno 2] No such file or directory: 'C:/Program Files/nodejs/node.exe'"
